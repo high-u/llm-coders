@@ -1,0 +1,25 @@
+{
+  "name": "cli-coder",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npx tsx src/main.tsx",
+    "build": "tsc",
+    "test": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "ink": "^6.1.0",
+    "react": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.0",
+    "@types/react": "^19.1.9",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}
