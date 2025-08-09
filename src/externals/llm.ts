@@ -6,11 +6,16 @@ export interface StreamEvent {
 	error?: string;
 }
 
+interface ChatMessage {
+	role: 'user' | 'assistant';
+	content: string;
+}
+
 export class LLMService {
 	static async streamChat(
 		endpoint: string,
 		model: string,
-		prompt: string,
+		messages: ChatMessage[],
 		onEvent: (event: StreamEvent) => void
 	): Promise<void> {
 		try {
@@ -19,7 +24,7 @@ export class LLMService {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					model,
-					messages: [{ role: 'user', content: prompt }],
+					messages,
 					stream: true
 				})
 			});

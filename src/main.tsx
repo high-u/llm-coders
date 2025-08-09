@@ -3,9 +3,13 @@ import {render, Text, Box} from 'ink';
 import config from 'config';
 import {AutoCompleteInput} from './components/SelectItem';
 import {NormalInput} from './components/NormalInput';
-import {LLMService} from './services/llm';
+import {ChatService} from './usecases/chat';
 
 const asciiArt = `
+█   █   ██ ██
+█   █   █ █ █
+███ ███ █ █ █
+
   ██████╗   ██████╗   ██████╗   ████████╗ ██████╗     ██████╗ 
 ██╔═════╝ ██╔═════██╗ ██╔═══██╗ ██╔═════╝ ██╔═══██╗ ██╔═════╝
 ██║       ██║     ██║ ██║   ██║ ██████║   ██████╔═╝ ████████╗
@@ -61,6 +65,7 @@ const CommandInterface = () => {
 
 	// エージェント選択
 	const handleAgentSelect = (agent: Agent) => {
+		ChatService.clearHistory(); // 履歴クリア
 		setSelectedAgentConfig(agent);
 		setInput(''); // 通常入力に戻る
 	};
@@ -78,11 +83,13 @@ const CommandInterface = () => {
 
 		let accumulatedOutput = '';
 
-		await LLMService.streamChat(
+		// ChatServiceに処理を委譲
+		await ChatService.chat(
 			selectedAgentConfig.endpoint,
 			selectedAgentConfig.model,
 			prompt,
 			(event) => {
+				// 既存のUI更新ロジックはそのまま
 				switch (event.type) {
 					case 'chunk':
 						accumulatedOutput += event.data;
