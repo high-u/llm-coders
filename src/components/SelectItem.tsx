@@ -72,31 +72,39 @@ export const AutoCompleteInput = ({
     }
   });
 
-  return React.createElement(Box, { flexDirection: 'column' },
-    // 入力表示
-    React.createElement(Text, { color: agentConfig.color },
-      `${agentConfig.name} > ${input}_`
-    ),
-    
-    // オートコンプリートリスト
-    filteredItems.length > 0 && React.createElement(Box, { 
-      flexDirection: 'column',
-      borderStyle: 'single',
-      borderColor: 'gray',
-      paddingLeft: 1,
-      marginTop: 0
-    },
-      React.createElement(Text, { color: 'white' }, 'Select an agent:'),
-      ...filteredItems.map((item, index) => 
-        React.createElement(Text, {
-          key: item.id,
-          color: index === selectedIndex ? 'yellow' : 'white',
-          backgroundColor: index === selectedIndex ? 'blue' : undefined
-        }, `${index === selectedIndex ? '> ' : '  '}${item.name}`)
-      ),
-      React.createElement(Box, { marginTop: 1 },
-        React.createElement(Text, { color: 'gray' }, 'Use ↑↓ to navigate, Enter to select, Esc to cancel')
-      )
-    )
+  return (
+    <Box flexDirection="column">
+      {/* 入力表示 */}
+      <Text color={agentConfig.color}>
+        {`${agentConfig.name} > ${input}_`}
+      </Text>
+      
+      {/* オートコンプリートリスト */}
+      {filteredItems.length > 0 && (
+        <Box 
+          flexDirection="column"
+          borderStyle="single"
+          borderColor="gray"
+          paddingLeft={1}
+          marginTop={0}
+        >
+          <Box marginBottom={1}>
+            <Text color="white">Select an agent:</Text>
+          </Box>
+          {filteredItems.map((item, index) => (
+            <Text
+              key={item.id}
+              color={index === selectedIndex ? 'yellow' : 'white'}
+              backgroundColor={index === selectedIndex ? 'blue' : undefined}
+            >
+              {`${index === selectedIndex ? '> ' : '  '}${item.name}`}
+            </Text>
+          ))}
+          <Box marginTop={1}>
+            <Text color="gray">Use ↑↓ to navigate, Enter to select, Esc to cancel</Text>
+          </Box>
+        </Box>
+      )}
+    </Box>
   );
 };

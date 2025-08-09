@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Text, useInput } from 'ink';
 
 interface Agent {
@@ -54,7 +54,9 @@ export const NormalInput = ({
     return null; // 処理中は表示しない
   }
 
-  return React.createElement(Text, { color: agentConfig.color },
-    `${agentConfig.name} > ${input}_`
+  return (
+    <Text color={agentConfig.color}>
+      {`${agentConfig.name} > ${input}_`}
+    </Text>
   );
 };
