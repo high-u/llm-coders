@@ -1,37 +1,86 @@
 import React, {useState} from 'react';
-import {render, Text, Box, useInput} from 'ink';
+import {render, Text, Box} from 'ink';
+import config from 'config';
+import {AutoCompleteInput} from './components/SelectItem';
+import {NormalInput} from './components/NormalInput';
 
 const asciiArt = `
-  █████    ████    █████    ███████  █████  
-██       ██    ██  ██   ██  ██       ██   ██ 
-██       ██    ██  ██   ██  █████    █████  
-██       ██    ██  ██   ██  ██       ██   ██ 
-  █████    ████    █████    ███████  ██   ██ 
+  █████╗   █████╗   █████╗   ███████╗ █████╗ 
+██╔════╝ ██╔════██╗ ██╔══██╗ ██╔════╝ ██╔══██╗
+██║      ██║    ██║ ██║  ██║ █████║   █████╔═╝
+██║      ██║    ██║ ██║  ██║ ██╔══╝   ██╔══██╗
+╚═█████╗ ╚═█████╔═╝ █████╔═╝ ███████╗ ██║  ██║
+  ╚════╝   ╚════╝   ╚════╝   ╚══════╝ ╚═╝  ╚═╝
 `;
 
 interface CommandEntry {
 	command: string;
 	output: string;
 	isStreaming?: boolean;
+	agentName: string;
+}
+
+interface Agent {
+	id: string;
+	name: string;
+	endpoint: string;
+	model: string;
+	color: string;
 }
 
 const CommandInterface = () => {
 	const [input, setInput] = useState('');
 	const [history, setHistory] = useState<CommandEntry[]>([]);
 	const [isProcessing, setIsProcessing] = useState(false);
+	
+	const agents: Agent[] = config.get('agents');
+	const [selectedAgentConfig, setSelectedAgentConfig] = useState<Agent>(agents[0]);
+
+	// エージェントをAutoCompleteInput用に変換
+	const agentItems = agents.map(agent => ({
+		...agent,
+		id: agent.name
+	}));
+
+	// オートコンプリート判定
+	const isAutoCompleting = input.startsWith('@') || input.startsWith('/');
+
+	// 通常入力の送信処理
+	const handleNormalSubmit = (text: string) => {
+		if (text.trim() && !isProcessing) {
+			callOllamaAPI(text);
+			setInput('');
+		}
+	};
+
+	// オートコンプリート開始
+	const handleAutoCompleteStart = (triggerChar: string) => {
+		setInput(triggerChar);
+	};
+
+	// エージェント選択
+	const handleAgentSelect = (agent: Agent) => {
+		setSelectedAgentConfig(agent);
+		setInput(''); // 通常入力に戻る
+	};
+
+	// オートコンプリートキャンセル
+	const handleAutoCompleteCancel = () => {
+		setInput(''); // 通常入力に戻る
+	};
 
 	const callOllamaAPI = async (prompt: string) => {
 		setIsProcessing(true);
 		
 		const commandIndex = history.length;
-		setHistory(prev => [...prev, { command: prompt, output: '', isStreaming: true }]);
+		setHistory(prev => [...prev, { command: prompt, output: '', isStreaming: true, agentName: selectedAgentConfig.name }]);
 
 		try {
-			const response = await fetch('http://localhost:11434/v1/chat/completions', {
+			const response = await fetch(`${selectedAgentConfig.endpoint}/chat/completions`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					model: 'hf.co/Menlo/Jan-nano-gguf:Q8_0',
+					model: selectedAgentConfig.model,
 					messages: [{ role: 'user', content: prompt }],
 					stream: true
 				})
@@ -86,38 +135,38 @@ const CommandInterface = () => {
 		}
 	};
 
-	useInput((inputChar, key) => {
-		if (key.return) {
-			if (input.trim() && !isProcessing) {
-				callOllamaAPI(input);
-				setInput('');
-			}
-		} else if (key.backspace || key.delete) {
-			setInput(prev => prev.slice(0, -1));
-		} else if (key.ctrl && inputChar === 'c') {
-			process.exit();
-		} else if (inputChar && !isProcessing) {
-			setInput(prev => prev + inputChar);
-		}
-	});
 
 	return (
 		<Box flexDirection="column">
-			<Text color="cyan">{asciiArt}</Text>
+			<Text color="white">{asciiArt}</Text>
 			<Text color="gray">Type commands and press Enter. Press Ctrl+C to exit.</Text>
-			<Text></Text>
+			<Box marginBottom={1}></Box>
 			
 			{history.map((entry, index) => (
 				<Box key={index} flexDirection="column">
-					<Text color="white">{'> ' + entry.command}</Text>
+					<Text color="white">{`${entry.agentName} > ${entry.command}`}</Text>
 					<Text color="green">{entry.output}</Text>
 				</Box>
 			))}
 			
-			{!isProcessing && (
-				<Text color="yellow">
-					{'> ' + input + '_'}
-				</Text>
+			{isAutoCompleting ? (
+				<AutoCompleteInput
+					items={agentItems}
+					triggerChar={input[0]} // '@' or '/'
+					initialInput={input}
+					agentConfig={selectedAgentConfig}
+					onSelect={handleAgentSelect}
+					onCancel={handleAutoCompleteCancel}
+				/>
+			) : (
+				<NormalInput
+					input={input}
+					agentConfig={selectedAgentConfig}
+					isProcessing={isProcessing}
+					onInputChange={setInput}
+					onSubmit={handleNormalSubmit}
+					onAutoCompleteStart={handleAutoCompleteStart}
+				/>
 			)}
 		</Box>
 	);

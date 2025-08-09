@@ -1,0 +1,16 @@
+{
+  "agents": [
+    {
+      "name": "Jan Nano 4B",
+      "endpoint": "http://localhost:11434/v1",
+      "model": "hf.co/Menlo/Jan-nano-gguf:Q8_0",
+      "color": "#f08000"
+    },
+    {
+      "name": "Qwen3 4B",
+      "endpoint": "http://localhost:11434/v1",
+      "model": "qwen3:4b-instruct-2507-q8_0",
+      "color": "#0080f0"
+    }
+  ]
+}
