@@ -1,17 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { Agent } from '../../../usecases/core/agentConfig';
 
 export interface AutoCompleteItem {
   id: string;
   name: string;
   [key: string]: any;
-}
-
-interface Agent extends AutoCompleteItem {
-  name: string;
-  endpoint: string;
-  model: string;
-  color: string;
 }
 
 export interface AutoCompleteInputProps {

@@ -4,7 +4,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "npx tsx src/main.tsx",
+    "dev": "npx tsx src/index.tsx",
     "build": "tsc",
     "test": "tsc --noEmit"
   },

@@ -211,7 +211,7 @@ import { UserExternal } from '../../repositories/database/userExternal'; // NG
 ### ルール4: ドメインごとの依存関係管理
 
 - 各ドメインで必要な依存関係のみ定義
-- main.tsはinterfaces層の初期化や起動のみ担当
+- /index.tsはinterfaces層の初期化や起動のみ担当
 - usecases層で依存関係の組み立てを実行
 - Factory Function パターン採用
 
@@ -221,7 +221,7 @@ import { UserExternal } from '../../repositories/database/userExternal'; // NG
 - 認知負荷の軽減：実装者は担当領域の依存関係のみ理解
 - テスト容易性：必要最小限の依存関係でテスト可能
 - 変更影響の局所化：他ドメインへの影響なし
-- main.tsの責任明確化：interfaces層の初期化や起動のみに専念
+- /index.tsの責任明確化：interfaces層の初期化や起動のみに専念
 
 ```typescript
 // usecases/user/dependencies.ts
@@ -230,7 +230,7 @@ export type UserDependencies = {
   emailService: EmailService;
 };
 
-// main.ts - 共有インフラストラクチャのみ作成・公開
+// /index.ts - 共有インフラストラクチャのみ作成・公開
 const db = createDatabase(process.env.DATABASE_URL);
 export const userExternal = createUserExternal(db);
 export const emailService = createEmailService();
@@ -319,7 +319,7 @@ export const createUserUseCases = (deps: UserDependencies) => ({
     - クライアントライブラリ入れ替えのような変更にも強くする
     - クライアントを実際に入れ替えることが無いとしても責任の分離を行う
 5. 環境依存処理の分離
-    - 環境変数の読み取りは`main.ts`のみ
+    - 環境変数の読み取りは`/index.ts`のみ
     - 設定オブジェクトとして各層に注入
     - 理由：環境設定変更時の修正箇所を明確化
 
@@ -364,8 +364,8 @@ interfaces/http/
 9. [ ] テストで必要最小限の依存関係のみモック化されているか？
 10. [ ] 機能独立性が確保されているか？（他機能の影響を受けない）
 11. [ ] 「かもしれない」で設計判断していないか？（現在の要件のみ）
-12. [ ] 設定は機能内で管理されているか？（main.tsに集約していない）
-13. [ ] main.tsはinterfaces層の初期化や起動のみか？（usecases層の責任を持っていない）
+12. [ ] 設定は機能内で管理されているか？（/index.tsに集約していない）
+13. [ ] /index.tsはinterfaces層の初期化や起動のみか？（usecases層の責任を持っていない）
 
 ## 関心事分離とドメイン独立性
 
@@ -444,7 +444,7 @@ const createUserWithNotifications = async (input: CreateUserInput) => {
 
 - 設定、依存関係、初期化処理を機能内で完結
 - 他機能の影響を受けず、他機能に影響を与えない
-- main.tsはinterfaces層の初期化や起動のみ
+- /index.tsはinterfaces層の初期化や起動のみ
 
 ### なぜこの原則？
 
@@ -456,8 +456,8 @@ const createUserWithNotifications = async (input: CreateUserInput) => {
 ### 実装例
 
 ```typescript
-// ❌ 悪い例: main.tsで共有設定
-// main.ts
+// ❌ 悪い例: /index.tsで共有設定
+// /index.ts
 export const mcpConfig = { /* 共有設定 */ };
 
 // ✅ 良い例: 機能内で専用設定
@@ -552,7 +552,7 @@ const workflowMCPConfig = { /* workflow専用 */ };
 
 - 共有設定ファイルではなく、機能内設定
 - 環境変数も機能内で読み取り
-- main.tsに設定を集約しない
+- /index.tsに設定を集約しない
 
 ### なぜ分散管理？
 
@@ -564,8 +564,8 @@ const workflowMCPConfig = { /* workflow専用 */ };
 ### 実装例
 
 ```typescript
-// ❌ 悪い例: main.tsで集約
-// main.ts  
+// ❌ 悪い例: /index.tsで集約
+// /index.ts  
 export const appConfig = {
   workflow: { mcpServer: "..." },
   task: { jwtSecret: "..." }
@@ -591,6 +591,6 @@ const taskConfig = {
 2. usecases = ドメインごとに分離されたフロー管理（coreとrepositoriesを組み合わせ）
 3. interfaces = HTTPやCLIなど外界との窓口
 4. repositories = データベースなど副作用
-5. 依存関係管理 = 各ドメインで定義し、main.tsで組み立て
+5. 依存関係管理 = 各ドメインで定義し、/index.tsで組み立て
 6. 依存の向き = interfaces → usecases → [core, repositories]
 7. 開発スタイル = 担当ドメインのみに集中、他ドメインは知らなくて良い

@@ -1,11 +1,6 @@
 import React from 'react';
 import { Text, useInput } from 'ink';
-
-interface Agent {
-  name: string;
-  color: string;
-  [key: string]: any;
-}
+import { Agent } from '../../../usecases/core/agentConfig';
 
 export interface NormalInputProps {
   input: string;

@@ -1,15 +1,12 @@
 import React, {useState} from 'react';
-import {render, Text, Box} from 'ink';
-import config from 'config';
+import {Text, Box} from 'ink';
 import {AutoCompleteInput} from './components/SelectItem';
 import {NormalInput} from './components/NormalInput';
-import {ChatService} from './usecases/chat';
+import { Agent } from '../../usecases/core/agentConfig';
+import { convertToDisplayItems } from '../../usecases/core/agentConfig';
+import { createChatUseCases } from '../../usecases/chat/chatUseCases';
 
 const asciiArt = `
-█   █   ██ ██
-█   █   █ █ █
-███ ███ █ █ █
-
   ██████╗   ██████╗   ██████╗   ████████╗ ██████╗     ██████╗ 
 ██╔═════╝ ██╔═════██╗ ██╔═══██╗ ██╔═════╝ ██╔═══██╗ ██╔═════╝
 ██║       ██║     ██║ ██║   ██║ ██████║   ██████╔═╝ ████████╗
@@ -25,27 +22,19 @@ interface CommandEntry {
 	agentName: string;
 }
 
-interface Agent {
-	id: string;
-	name: string;
-	endpoint: string;
-	model: string;
-	color: string;
-}
+// usecases層で依存関係を組み立て
+const chatUseCases = createChatUseCases();
 
-const CommandInterface = () => {
+export const CommandInterface = () => {
 	const [input, setInput] = useState('');
 	const [history, setHistory] = useState<CommandEntry[]>([]);
 	const [isProcessing, setIsProcessing] = useState(false);
 	
-	const agents: Agent[] = config.get('agents');
+	const agents: Agent[] = chatUseCases.getAgents();
 	const [selectedAgentConfig, setSelectedAgentConfig] = useState<Agent>(agents[0]);
 
 	// エージェントをAutoCompleteInput用に変換
-	const agentItems = agents.map(agent => ({
-		...agent,
-		id: agent.name
-	}));
+	const agentItems = convertToDisplayItems(agents);
 
 	// オートコンプリート判定
 	const isAutoCompleting = input.startsWith('@') || input.startsWith('/');
@@ -65,7 +54,7 @@ const CommandInterface = () => {
 
 	// エージェント選択
 	const handleAgentSelect = (agent: Agent) => {
-		ChatService.clearHistory(); // 履歴クリア
+		chatUseCases.clearHistory(); // 履歴クリア
 		setSelectedAgentConfig(agent);
 		setInput(''); // 通常入力に戻る
 	};
@@ -83,21 +72,22 @@ const CommandInterface = () => {
 
 		let accumulatedOutput = '';
 
-		// ChatServiceに処理を委譲
-		await ChatService.chat(
-			selectedAgentConfig.endpoint,
-			selectedAgentConfig.model,
+		// ChatUseCasesに処理を委譲
+		await chatUseCases.chat(
+			selectedAgentConfig,
 			prompt,
 			(event) => {
 				// 既存のUI更新ロジックはそのまま
 				switch (event.type) {
 					case 'chunk':
-						accumulatedOutput += event.data;
-						setHistory(prev => prev.map((entry, index) => 
-							index === commandIndex 
-								? { ...entry, output: accumulatedOutput }
-								: entry
-						));
+						if (event.data) {
+							accumulatedOutput += event.data;
+							setHistory(prev => prev.map((entry, index) => 
+								index === commandIndex 
+									? { ...entry, output: accumulatedOutput }
+									: entry
+							));
+						}
 						break;
 					
 					case 'complete':
@@ -158,5 +148,3 @@ const CommandInterface = () => {
 		</Box>
 	);
 };
-
-render(<CommandInterface />);
