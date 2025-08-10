@@ -1,5 +1,5 @@
 import { ChatMessage, StreamEvent } from '../../usecases/core/messageFormat';
-import { createLLMRequest, createRequestHeaders, formatEndpoint } from './functions/formatRequest';
+import { formatEndpoint } from './functions/formatRequest';
 import { processStreamChunk } from './functions/parseStream';
 
 export interface LLMExternal {
@@ -19,8 +19,14 @@ export const createLLMExternal = (): LLMExternal => ({
 		onEvent: (event: StreamEvent) => void
 	): Promise<void> => {
 		try {
-			const request = createLLMRequest(model, messages);
-			const headers = createRequestHeaders();
+			const request = {
+				model,
+				messages,
+				stream: true
+			};
+			const headers = {
+				'Content-Type': 'application/json'
+			};
 			const url = formatEndpoint(endpoint);
 
 			const response = await fetch(url, {

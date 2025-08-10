@@ -1,8 +1,5 @@
 import { ChatMessage } from '../../usecases/core/messageFormat';
-import { getHistoryCopy } from '../../usecases/core/historyUtils';
-import { addMessage } from './functions/addMessage';
-import { clearHistory } from './functions/clearHistory';
-import { filterByAgent } from './functions/filterByAgent';
+import { getHistoryCopy, addMessageToHistory, clearHistory as clearHistoryCore } from '../../usecases/core/historyUtils';
 
 export interface ConversationHistoryRepository {
 	add: (message: ChatMessage) => void;
@@ -16,11 +13,11 @@ export const createConversationHistoryRepository = (): ConversationHistoryReposi
 
 	return {
 		add: (message: ChatMessage): void => {
-			history = addMessage(history, message);
+			history = addMessageToHistory(history, message);
 		},
 
 		clear: (): void => {
-			history = clearHistory();
+			history = clearHistoryCore();
 		},
 
 		getHistory: (): ChatMessage[] => {
@@ -28,7 +25,7 @@ export const createConversationHistoryRepository = (): ConversationHistoryReposi
 		},
 
 		filterByAgent: (agentName: string): ChatMessage[] => {
-			return filterByAgent(history, agentName);
+			return [...history];
 		}
 	};
 };

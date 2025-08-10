@@ -63,7 +63,7 @@ type MCPServerConfig = {};
 export interface WorkflowExternal {}
 export const createMCPExternal = () => {};
 
-// UseCases パターン - ビジネスロジック層  
+// UseCases パターン - ドメインロジック層  
 export const workflowUseCases = {};
 
 // Handler パターン - インターフェース層
@@ -117,6 +117,244 @@ interfaces層であっても、repositories層であっても、純粋関数で�
 - 副作用が必要ない処理は純粋関数として実装
 - 層の決定は責任・機能で行い、実装では可能な限り純粋関数を使用
 - テスト容易性を最大化
+
+#### 純粋関数の切り出し基準
+
+```typescript
+// ✅ 切り出し対象（functions/フォルダに配置）
+// 3行以上 OR 条件分岐・ループ含有
+export const processStreamChunk = (chunk: string): string[] => {
+  return chunk
+    .split('\n')
+    .filter(line => line.trim() && line.startsWith('data: '))
+    .map(line => extractContent(line))
+    .filter(content => content !== null);
+};
+
+// 複数箇所で使用される処理
+export const validateEmailFormat = (email: string): boolean => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+// ❌ 切り出し不要（直接実装）
+// 1-2行の単純処理
+const headers = { 'Content-Type': 'application/json' };
+
+// 単なるラッパー関数
+const result = coreFunction(input);
+
+// 定数生成のみ
+const defaultConfig = { timeout: 5000 };
+```
+
+切り出し基準:
+
+- 3行以上の処理
+- 条件分岐・ループを含む処理  
+- 複数箇所で使用される処理
+- テスト価値のあるドメインロジック
+
+切り出し不要:
+
+- 1-2行の単純処理
+- 単なるラッパー関数
+- 定数生成のみの処理
+
+## イベント駆動アーキテクチャ
+
+### 3層イベントチェーンパターン
+
+非同期処理・ストリーミング処理において、各層が責任を持ってイベントを変換・転送する設計：
+
+```plain
+externals層 → usecases層 → interfaces層
+(副作用)    (ドメイン処理) (UI更新)
+```
+
+#### 基本原則
+
+1. 各層でイベント変換: 生データを各層の責任に応じて加工
+2. 一方向伝播: externals → usecases → interfacesの順序厳守
+3. 責任分離: 各層は自身の責務に関する情報のみ付加
+
+#### 実装パターン
+
+```typescript
+// externals層: 生の副作用データを発火
+interface RawStreamEvent {
+  type: 'raw_chunk' | 'raw_complete' | 'raw_error';
+  data?: any;
+  error?: string;
+}
+
+// usecases層: ドメインロジックを適用して発火  
+interface DomainStreamEvent {
+  type: 'message_chunk' | 'message_complete' | 'message_error';
+  message?: ProcessedMessage;
+  agent?: Agent;
+  error?: string;
+}
+
+// interfaces層: UI固有データで最終処理
+interface UIStreamEvent {
+  type: 'display_update' | 'display_complete' | 'display_error';
+  displayData?: UIFormattedData;
+  error?: string;
+}
+```
+
+#### イベント処理の責任分離
+
+- externals層: 外部システムの生データをそのまま伝播
+- usecases層: ドメインロジックを適用し、ドメイン情報を付加
+- interfaces層: UI表示に特化した変換・表示処理
+
+#### ❌ アンチパターン
+
+```typescript
+// usecases層からUI直接操作
+await llmExternal.stream(data, (chunk) => {
+  updateUIDirectly(chunk); // 責任越境
+});
+
+// 層をスキップしたイベント伝播
+externals → interfaces // usecases層の責任を無視
+```
+
+#### ✅ 正しいパターン
+
+```typescript
+// usecases層: ドメイン処理してから転送
+await llmExternal.stream(data, (rawEvent) => {
+  const domainEvent = processDomainLogic(rawEvent);
+  onDomainEvent(domainEvent); // interfaces層に委譲
+});
+
+// interfaces層: UI処理
+usecases.onEvent((domainEvent) => {
+  const uiEvent = convertToUIFormat(domainEvent);
+  updateDisplay(uiEvent);
+});
+```
+
+### なぜこのパターン？
+
+1. 責任の明確化: 各層が適切な抽象化レベルで処理
+2. テスタビリティ: 各層のイベント処理を独立してテスト可能
+3. 変更容易性: UI変更が外部API処理に影響しない
+4. 再利用性: usecases層のイベント処理を異なるUI層で利用可能
+
+## 状態管理の分類原則
+
+### 状態の性質による層の責任分離
+
+アプリケーションの状態を性質に応じて3つに分類し、各層の責任を明確化する：
+
+#### 1. データ状態 → externals層で管理
+
+- 特徴: 永続化対象、複数機能から参照
+- 例: 会話履歴
+- 責任: 状態の保存・取得・更新を管理
+
+```typescript
+// externals/conversationHistory/
+export const createConversationHistoryRepository = () => ({
+  add: (message: ChatMessage) => void,
+  clear: () => void,
+  getHistory: () => ChatMessage[],
+  filterByAgent: (agentId: string) => ChatMessage[]
+});
+```
+
+#### 2. 処理フロー状態 → usecases層で制御
+
+- 特徴: 一時的、ドメインロジック制御、複数ステップの管理
+- 例: チャット処理フロー、バリデーション結果
+- 責任: 処理進行の制御、データ状態の操作指示、イベント転送
+
+```typescript
+// usecases/chat/chatUseCases.ts
+export const chat = async (input: string) => {
+  // 処理フロー制御
+  const userMessage = formatUserMessage(input);
+  conversationHistoryRepository.add(userMessage); // データ状態操作
+  
+  const currentHistory = conversationHistoryRepository.getHistory();
+  let assistantResponse = '';
+  
+  await llmExternal.streamChat(/* ... */, (event) => {
+    if (event.type === 'chunk') {
+      assistantResponse += event.data;
+    }
+    onEvent(event); // interfaces層にイベント転送
+  });
+};
+```
+
+#### 3. UI状態 → interfaces層で管理
+
+- 特徴: 一時的、表示制御のみ、単一コンポーネント固有
+- 例: 処理中フラグ(isProcessing)、エージェント選択(selectedAgent)、入力中テキスト(input)
+- 責任: UI表示状態の管理とイベント応答でのUI更新
+
+```typescript
+// interfaces/cli/components/
+const [input, setInput] = useState('');
+const [isProcessing, setIsProcessing] = useState(false);
+const [selectedAgent, setSelectedAgent] = useState(agents[0]);
+```
+
+### イベントと状態の連携フロー
+
+3層イベントチェーンと状態管理の組み合わせ：
+
+```plain
+externals層   : データ状態更新 + 生イベント発火
+     ↓        (会話履歴保存)     (raw_chunk)
+usecases層    : 処理フロー状態管理 + ドメインイベント発火  
+     ↓        (進行状況制御)      (message_chunk)
+interfaces層  : UI状態更新 + 表示制御
+               (isProcessing)     (画面更新)
+```
+
+### なぜこのルール？
+
+1. 責任の明確化: 状態の性質に応じて管理責任が分離され、どこを変更すべきかが明確になる
+2. 変更影響の局所化: UI変更がデータ層に影響せず、データスキーマ変更がUI層に影響しない
+3. テスタビリティ: 各層の状態を独立してテスト可能（データ状態のモック、UI状態の分離テスト）
+4. 開発効率: 担当者が自分の層の状態管理のみに集中可能
+
+### ❌ アンチパターン
+
+```typescript
+// UI層でデータ状態を直接管理
+const [conversationHistory, setHistory] = useState<Message[]>([]);
+
+// データ層でUI状態を管理
+const repository = {
+  messages: [],
+  isLoading: false, // UI状態の混入
+};
+
+// usecases層でデータ状態を直接管理
+let globalHistory: Message[] = []; // データ状態の混入
+```
+
+### ✅ 正しいパターン
+
+```typescript
+// データ状態: externals層
+const historyRepo = createConversationHistoryRepository();
+
+// UI状態: interfaces層
+const [isProcessing, setIsProcessing] = useState(false);
+
+// 処理フロー状態: usecases層（引数・戻り値・ローカル変数）
+const processChat = async (input: string) => {
+  const validation = validateInput(input);
+  return await executeFlow(validation);
+};
+```
 
 ## 5つの必須ルール
 
@@ -591,6 +829,6 @@ const taskConfig = {
 2. usecases = ドメインごとに分離されたフロー管理（coreとrepositoriesを組み合わせ）
 3. interfaces = HTTPやCLIなど外界との窓口
 4. repositories = データベースなど副作用
-5. 依存関係管理 = 各ドメインで定義し、/index.tsで組み立て
+5. 依存関係管理 = 各ドメインで定義し、共有インフラのみ/index.tsで作成、組み立てはusecases層で実行
 6. 依存の向き = interfaces → usecases → [core, repositories]
 7. 開発スタイル = 担当ドメインのみに集中、他ドメインは知らなくて良い
