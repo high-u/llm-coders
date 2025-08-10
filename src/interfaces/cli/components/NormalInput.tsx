@@ -22,7 +22,11 @@ export const NormalInput = ({
 
   // 通常入力の処理
   useInput((inputChar, key) => {
-    if (key.return) {
+    if (key.ctrl && inputChar === 'j') {
+      // Ctrl+J で改行
+      const newInput = input + '\n';
+      onInputChange(newInput);
+    } else if (key.return) {
       // Enter で送信
       if (input.trim() && !isProcessing) {
         onSubmit(input);
