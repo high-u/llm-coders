@@ -1,6 +1,8 @@
 export interface ChatMessage {
-	role: 'user' | 'assistant';
+	role: 'user' | 'assistant' | 'tool';
 	content: string;
+	tool_call_id?: string;
+	tool_calls?: ToolCall[];
 }
 
 export interface ToolCall {
@@ -27,8 +29,17 @@ export const createChatMessage = (role: 'user' | 'assistant', content: string): 
 export const formatUserMessage = (content: string): ChatMessage => 
 	createChatMessage('user', content);
 
-export const formatAssistantMessage = (content: string): ChatMessage => 
-	createChatMessage('assistant', content);
+export const formatAssistantMessage = (content: string, tool_calls?: ToolCall[]): ChatMessage => ({
+	role: 'assistant',
+	content,
+	tool_calls
+});
+
+export const formatToolMessage = (content: string, tool_call_id: string): ChatMessage => ({
+	role: 'tool',
+	content,
+	tool_call_id
+});
 
 export const validateChatMessage = (message: any): message is ChatMessage => {
 	return (
