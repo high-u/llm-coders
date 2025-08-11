@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { Agent } from '../../../usecases/core/agentConfig';
+import { createChunkNormalizer } from './utilities/inputNormalization';
 
 export interface AutoCompleteItem {
   id: string;
@@ -27,6 +28,7 @@ export const AutoCompleteInput = ({
 }: AutoCompleteInputProps) => {
   const [input, setInput] = useState(initialInput);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const normalizerRef = useRef(createChunkNormalizer());
 
   // フィルタリング（完全に内部で完結）
   const filteredItems = useMemo(() => {
@@ -50,19 +52,20 @@ export const AutoCompleteInput = ({
       // キャンセル
       onCancel();
     } else if (key.backspace || key.delete) {
-      // Backspace処理
-      const newInput = input.slice(0, -1);
-      if (newInput.length > 0) {
-        setInput(newInput);
+      // Backspace処理（関数型更新＋空になったらキャンセル）
+      if (input.length > 1) {
+        setInput(prev => prev.slice(0, -1));
         setSelectedIndex(0); // フィルタ変更時リセット
       } else {
         onCancel(); // 全削除でキャンセル
       }
     } else if (inputChar && !key.ctrl) {
-      // 文字入力処理
-      const newInput = input + inputChar;
-      setInput(newInput);
-      setSelectedIndex(0); // フィルタ変更時リセット
+      // 文字入力処理（正規化してから反映）
+      const chunk = normalizerRef.current.normalize(inputChar);
+      if (chunk) {
+        setInput(prev => prev + chunk);
+        setSelectedIndex(0); // フィルタ変更時リセット
+      }
     }
   });
 
