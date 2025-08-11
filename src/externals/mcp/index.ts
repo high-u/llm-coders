@@ -15,6 +15,7 @@ export interface McpServerConfig {
 export interface MCPExternal {
   startAll: (servers: McpServerConfig[]) => Promise<void>;
   listTools: () => Promise<McpTool[]>;
+  callTool: (toolName: string, args: any) => Promise<any>;
   stopAll: () => Promise<void>;
 }
 
@@ -78,6 +79,19 @@ export const createMCPExternal = (): MCPExternal => {
         }
       }
       return results;
+    },
+
+    callTool: async (toolName: string, args: any): Promise<any> => {
+      for (const { name, client } of connections) {
+        if (!client || !client.callTool) continue;
+        try {
+          const result = await client.callTool({ name: toolName, arguments: args });
+          return result;
+        } catch (e) {
+          console.warn(`[mcp] callTool failed on ${name}:`, e);
+        }
+      }
+      throw new Error(`Tool ${toolName} not found in any connected server`);
     },
 
     stopAll: async (): Promise<void> => {

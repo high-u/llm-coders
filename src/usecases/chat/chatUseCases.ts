@@ -62,7 +62,7 @@ export const createChatUseCases = (deps: ChatUseCasesDependencies = {}): ChatUse
 				agent.endpoint,
 				agent.model,
 				currentHistory,
-				(event: StreamEvent) => {
+				async (event: StreamEvent) => {
 					// アシスタント応答の蓄積
 					if (event.type === 'chunk' && event.data) {
 						assistantResponse += event.data;
@@ -82,6 +82,44 @@ export const createChatUseCases = (deps: ChatUseCasesDependencies = {}): ChatUse
 							}
 						};
 						console.error(JSON.stringify(fullResponse, null, 2));
+
+						// 3.5. ツール実行処理
+						if (toolCalls.length > 0 && mcpExternal) {
+							for (const toolCall of toolCalls) {
+								try {
+									const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
+									const result = await mcpExternal.callTool(toolCall.function.name, toolArgs);
+									
+									// ツール実行結果をstderrに出力
+									const toolResult = {
+										ts: new Date().toISOString(),
+										source: 'mcp',
+										event: 'tool_execution_complete',
+										tool_call: {
+											id: toolCall.id,
+											name: toolCall.function.name,
+											arguments: toolArgs
+										},
+										result
+									};
+									console.error(JSON.stringify(toolResult, null, 2));
+								} catch (error) {
+									// ツール実行エラーをstderrに出力
+									const toolError = {
+										ts: new Date().toISOString(),
+										source: 'mcp',
+										event: 'tool_execution_error',
+										tool_call: {
+											id: toolCall.id,
+											name: toolCall.function.name,
+											arguments: toolCall.function.arguments
+										},
+										error: error instanceof Error ? error.message : String(error)
+									};
+									console.error(JSON.stringify(toolError, null, 2));
+								}
+							}
+						}
 
 						// 4. アシスタント応答を履歴に追加
 						const assistantMessage = formatAssistantMessage(assistantResponse);
