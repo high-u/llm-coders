@@ -3,10 +3,20 @@ export interface ChatMessage {
 	content: string;
 }
 
+export interface ToolCall {
+	id: string;
+	type: 'function';
+	function: {
+		name: string;
+		arguments: string;
+	};
+}
+
 export interface StreamEvent {
-	type: 'chunk' | 'complete' | 'error';
+	type: 'chunk' | 'complete' | 'error' | 'tool_call';
 	data?: string;
 	error?: string;
+	tool_call?: ToolCall;
 }
 
 export const createChatMessage = (role: 'user' | 'assistant', content: string): ChatMessage => ({

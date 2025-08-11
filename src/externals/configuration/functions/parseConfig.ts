@@ -1,4 +1,5 @@
 import { Agent } from '../../../usecases/core/agentConfig';
+import { McpServerDefinition } from '../types';
 
 export const parseAgentsFromConfig = (configData: any): Agent[] => {
 	if (!configData || !Array.isArray(configData.agents)) {
@@ -18,4 +19,18 @@ export const parseAgentsFromConfig = (configData: any): Agent[] => {
 			color: agent.color
 		};
 	});
+};
+
+export const parseMcpServersFromConfig = (configData: any): McpServerDefinition[] => {
+  const servers = configData?.mcpServer ?? {};
+  if (!servers || typeof servers !== 'object') return [];
+  return Object.entries(servers).map(([name, value]: [string, any]) => ({
+    name,
+    transport: (value?.transport as any) ?? 'stdio',
+    command: value?.command,
+    args: Array.isArray(value?.args) ? value.args : undefined,
+    url: value?.url,
+    host: value?.host,
+    port: typeof value?.port === 'number' ? value.port : undefined
+  }));
 };

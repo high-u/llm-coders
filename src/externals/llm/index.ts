@@ -1,4 +1,5 @@
 import { ChatMessage, StreamEvent } from '../../usecases/core/messageFormat';
+import { OpenAITool } from '../../usecases/core/toolTypes';
 import { formatEndpoint } from './functions/formatRequest';
 import { processStreamChunk } from './functions/parseStream';
 
@@ -7,7 +8,8 @@ export interface LLMExternal {
 		endpoint: string,
 		model: string,
 		messages: ChatMessage[],
-		onEvent: (event: StreamEvent) => void
+		onEvent: (event: StreamEvent) => void,
+		options?: { tools?: OpenAITool[]; toolChoice?: any }
 	) => Promise<void>;
 }
 
@@ -16,18 +18,33 @@ export const createLLMExternal = (): LLMExternal => ({
 		endpoint: string,
 		model: string,
 		messages: ChatMessage[],
-		onEvent: (event: StreamEvent) => void
+		onEvent: (event: StreamEvent) => void,
+		options?: { tools?: OpenAITool[]; toolChoice?: any }
 	): Promise<void> => {
 		try {
 			const request = {
 				model,
 				messages,
-				stream: true
+				stream: true,
+				...(options?.tools ? { tools: options.tools } : {}),
+				...(options?.toolChoice ? { tool_choice: options.toolChoice } : {})
 			};
 			const headers = {
 				'Content-Type': 'application/json'
 			};
 			const url = formatEndpoint(endpoint);
+
+			// リクエスト直前にstderrへフルJSONを出力
+			const log = {
+				ts: new Date().toISOString(),
+				source: 'llm',
+				event: 'request',
+				url,
+				method: 'POST',
+				headers,
+				body: request
+			};
+			console.error(JSON.stringify(log, null, 2));
 
 			const response = await fetch(url, {
 				method: 'POST',
@@ -43,10 +60,15 @@ export const createLLMExternal = (): LLMExternal => ({
 				if (done) break;
 
 				const chunk = new TextDecoder().decode(value);
-				const contents = processStreamChunk(chunk);
+				const parsedData = processStreamChunk(chunk);
 
-				for (const content of contents) {
-					onEvent({ type: 'chunk', data: content });
+				for (const data of parsedData) {
+					if (data.content) {
+						onEvent({ type: 'chunk', data: data.content });
+					}
+					if (data.tool_call) {
+						onEvent({ type: 'tool_call', tool_call: data.tool_call });
+					}
 				}
 			}
 
