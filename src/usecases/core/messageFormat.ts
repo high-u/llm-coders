@@ -15,7 +15,7 @@ export interface ToolCall {
 }
 
 export interface StreamEvent {
-	type: 'chunk' | 'complete' | 'error' | 'tool_call';
+	type: 'chunk' | 'complete' | 'error' | 'tool_call_start' | 'tool_call_result' | 'tool_call_error';
 	data?: string;
 	error?: string;
 	tool_call?: ToolCall;

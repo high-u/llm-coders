@@ -41,7 +41,11 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 				agent.endpoint,
 				agent.model,
 				currentHistory,
-				onEvent,
+				// usecases 層でイベントを受け取り、UI 向けに転送（3層チェーン順守）
+				(event) => {
+					// 将来ここでドメイン変換やフィルタリングが可能
+					onEvent(event);
+				},
 				{ 
 					mcpExternal  // DIでMCP機能を注入
 				}

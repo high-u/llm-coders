@@ -157,6 +157,44 @@ export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 							));
 						}
 						break;
+
+					case 'tool_call_start':
+						{
+							const toolName = event.tool_call?.function?.name || 'unknown';
+							const line = `\n[Tool] Executing tool: ${toolName} ...\n`;
+							accumulatedOutput += line;
+							setHistory(prev => prev.map((entry, index) => 
+								index === commandIndex 
+									? { ...entry, output: accumulatedOutput }
+									: entry
+							));
+						}
+						break;
+
+					case 'tool_call_result':
+						{
+							const line = `\n[Tool] Completed tool execution.\n`;
+							accumulatedOutput += line;
+							setHistory(prev => prev.map((entry, index) => 
+								index === commandIndex 
+									? { ...entry, output: accumulatedOutput }
+									: entry
+							));
+						}
+						break;
+
+					case 'tool_call_error':
+						{
+							const err = event.error || 'Unknown error';
+							const line = `\n[Tool] Tool execution failed: ${err}\n`;
+							accumulatedOutput += line;
+							setHistory(prev => prev.map((entry, index) => 
+								index === commandIndex 
+									? { ...entry, output: accumulatedOutput }
+									: entry
+							));
+						}
+						break;
 					
 					case 'complete':
 						setHistory(prev => prev.map((entry, index) => 

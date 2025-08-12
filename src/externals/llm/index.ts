@@ -140,6 +140,11 @@ export const createLLMExternal = (): LLMExternal => ({
 					
 					try {
 						const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
+						// ツール開始イベント
+						onEvent({
+							type: 'tool_call_start',
+							tool_call: toolCall
+						});
 						const result = await options.mcpExternal.callTool(toolCall.function.name, toolArgs);
 						
 						if (result.content && Array.isArray(result.content) && result.content[0]?.text) {
@@ -161,6 +166,12 @@ export const createLLMExternal = (): LLMExternal => ({
 							result
 						};
 						console.error(JSON.stringify(toolResult, null, 2));
+						// ツール完了イベント（成功）
+						onEvent({
+							type: 'tool_call_result',
+							tool_call: toolCall,
+							data: toolContent
+						});
 					} catch (error) {
 						toolContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
 						
@@ -177,6 +188,12 @@ export const createLLMExternal = (): LLMExternal => ({
 							error: error instanceof Error ? error.message : String(error)
 						};
 						console.error(JSON.stringify(toolError, null, 2));
+						// ツール完了イベント（失敗）
+						onEvent({
+							type: 'tool_call_error',
+							tool_call: toolCall,
+							error: error instanceof Error ? error.message : String(error)
+						});
 					}
 					
 					// ツールメッセージを履歴に追加
