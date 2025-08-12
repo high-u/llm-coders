@@ -46,7 +46,18 @@ export const validateChatMessage = (message: any): message is ChatMessage => {
 		typeof message === 'object' &&
 		message !== null &&
 		typeof message.role === 'string' &&
-		(message.role === 'user' || message.role === 'assistant') &&
+		(message.role === 'user' || message.role === 'assistant' || message.role === 'tool') &&
 		typeof message.content === 'string'
+	);
+};
+
+// ツールメッセージ専用の型ガード（安全に参照するために使用可能）
+export const isToolMessage = (
+	message: ChatMessage
+): message is ChatMessage & { role: 'tool'; tool_call_id: string } => {
+	return (
+		message.role === 'tool' &&
+		typeof message.tool_call_id === 'string' &&
+		message.tool_call_id.length > 0
 	);
 };
