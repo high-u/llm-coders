@@ -1,6 +1,6 @@
 // Local structural type to avoid importing core/usecases
 export interface ChatMessage {
-  role: 'user' | 'assistant' | 'tool';
+  role: 'user' | 'assistant' | 'tool' | 'system';
   content: string;
   tool_call_id?: string;
   tool_calls?: {

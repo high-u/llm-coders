@@ -1,23 +1,23 @@
 import config from 'config';
-import { parseAgentsFromConfig, parseMcpServersFromConfig } from './functions/parseConfig';
+import { parseCodersFromConfig, parseMcpServersFromConfig } from './functions/parseConfig';
 import { validateConfigStructure } from './functions/validateConfig';
 import type { McpServerDefinition } from './types';
-import type { RawAgent } from './functions/parseConfig';
+import type { RawCoder } from './functions/parseConfig';
 
 export interface ConfigurationExternal {
-	getAgents: () => RawAgent[];
+	getCoders: () => RawCoder[];
   getMcpServers: () => McpServerDefinition[];
 }
 
 export const createConfigurationExternal = (): ConfigurationExternal => ({
-	getAgents: (): RawAgent[] => {
+	getCoders: (): RawCoder[] => {
 		const configData = config.util.toObject();
 		
 		if (!validateConfigStructure(configData)) {
 			throw new Error('Invalid configuration structure');
 		}
 
-		return parseAgentsFromConfig(configData);
+		return parseCodersFromConfig(configData);
 	},
   getMcpServers: (): McpServerDefinition[] => {
     const configData = config.util.toObject();

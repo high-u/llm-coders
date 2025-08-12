@@ -2,7 +2,7 @@ import React, {useState, useRef} from 'react';
 import {Text, Box, useInput} from 'ink';
 import {AutoCompleteInput} from './components/SelectItem';
 import {NormalInput} from './components/NormalInput';
-import { Agent } from '../../usecases/core/agentConfig';
+import { Coder } from '../../usecases/core/agentConfig';
 import { convertToDisplayItems } from '../../usecases/core/agentConfig';
 import { ChatUseCases } from '../../usecases/chat/chatUseCases';
 import { createChunkNormalizer } from './components/utilities/inputNormalization';
@@ -34,18 +34,18 @@ export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const normalizerRef = useRef(createChunkNormalizer());
 	
-	const agents: Agent[] = chatUseCases.getAgents();
-	const [selectedAgentConfig, setSelectedAgentConfig] = useState<Agent>(agents[0]);
+	const coders: Coder[] = chatUseCases.getCoders();
+	const [selectedCoderConfig, setSelectedCoderConfig] = useState<Coder>(coders[0]);
 
-	// エージェントをAutoCompleteInput用に変換
-	const agentItems = convertToDisplayItems(agents);
+	// コーダーをAutoCompleteInput用に変換
+	const coderItems = convertToDisplayItems(coders);
 
 	// オートコンプリート判定
 	const isAutoCompleting = input.startsWith('@') || input.startsWith('/');
 	
 	// フィルタリングされたアイテム（オートコンプリート時のみ）
 	const filteredItems = isAutoCompleting
-		? agentItems.filter(item => {
+		? coderItems.filter(item => {
 				const filterText = input.slice(1);
 				if (!filterText) return true;
 				return item.name.toLowerCase().startsWith(filterText.toLowerCase());
@@ -65,10 +65,10 @@ export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 		setInput(triggerChar);
 	};
 
-	// エージェント選択
-	const handleAgentSelect = (agent: Agent) => {
+	// コーダー選択
+	const handleCoderSelect = (coder: Coder) => {
 		chatUseCases.clearHistory(); // 履歴クリア
-		setSelectedAgentConfig(agent);
+		setSelectedCoderConfig(coder);
 		setInput(''); // 通常入力に戻る
 		setSelectedIndex(0); // インデックスリセット
 	};
@@ -96,7 +96,7 @@ export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 			} else if (key.downArrow && filteredItems.length > 0) {
 				setSelectedIndex(prev => prev < filteredItems.length - 1 ? prev + 1 : 0);
 			} else if (key.return && filteredItems.length > 0) {
-				handleAgentSelect(filteredItems[selectedIndex]);
+				handleCoderSelect(filteredItems[selectedIndex]);
 			} else if (key.escape) {
 				handleAutoCompleteCancel();
 			} else if (key.backspace || key.delete) {
@@ -136,13 +136,13 @@ export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 		setIsProcessing(true);
 		
 		const commandIndex = history.length;
-		setHistory(prev => [...prev, { command: prompt, output: '', isStreaming: true, agentName: selectedAgentConfig.name }]);
+		setHistory(prev => [...prev, { command: prompt, output: '', isStreaming: true, agentName: selectedCoderConfig.name }]);
 
 		let accumulatedOutput = '';
 
 		// ChatUseCasesに処理を委譲
 		await chatUseCases.chat(
-			selectedAgentConfig,
+			selectedCoderConfig,
 			prompt,
 			(event) => {
 				// 既存のUI更新ロジックはそのまま
@@ -237,13 +237,13 @@ export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 					items={filteredItems}
 					triggerChar={input[0]} // '@' or '/'
 					initialInput={input}
-					agentConfig={selectedAgentConfig}
+					agentConfig={selectedCoderConfig}
 					selectedIndex={selectedIndex}
 				/>
 			) : (
 				<NormalInput
 					input={input}
-					agentConfig={selectedAgentConfig}
+					agentConfig={selectedCoderConfig}
 					isProcessing={isProcessing}
 				/>
 			)}

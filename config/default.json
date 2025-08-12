@@ -1,22 +1,50 @@
 {
-  "agents": [
-    {
-      "name": "Jan Nano 4B",
-      "endpoint": "http://localhost:11434/v1",
-      "model": "hf.co/Menlo/Jan-nano-gguf:Q8_0",
-      "color": "#f08000"
+    "model": {
+        "jan-nano-4b": {
+            "modelId": "hf.co/Menlo/Jan-nano-gguf:Q8_0",
+            "endpoint": "http://localhost:11434/v1",
+            "type": "ollama"
+        },
+        "qwen3-4b": {
+            "modelId": "qwen3:4b-instruct-2507-q8_0",
+            "endpoint": "http://localhost:1234/v1",
+            "type": "lm-studio"
+        }
     },
-    {
-      "name": "Qwen3 4B",
-      "endpoint": "http://localhost:11434/v1",
-      "model": "qwen3:4b-instruct-2507-q8_0",
-      "color": "#0080f0"
+    "coders": [
+        {
+            "model": "jan-nano-4b",
+            "name": "Jan Nano 4B",
+            "systemPrompt": "You are a great coding assistant.",
+            "color": "#f08000"
+        },
+        {
+            "model": "qwen3-4b",
+            "name": "Qwen3 4B",
+            "systemPrompt": "You are a great coding assistant.",
+            "color": "#0080f0"
+        }
+    ],
+    "tool": {
+        "architect": {
+            "model": "jan-nano-4b",
+            "systemPrompt": "",
+            "arguments": [],
+            "description": ""
+        },
+        "reviewer": {
+            "model": "jan-nano-4b",
+            "systemPrompt": "",
+            "arguments": [],
+            "description": ""
+        }
+    },
+    "mcpServer": {
+        "mcp-server-fetch": {
+            "command": "/Users/p789/.local/bin/uvx",
+            "args": [
+                "mcp-server-fetch"
+            ]
+        }
     }
-  ],
-  "mcpServer": {
-    "mcp-server-fetch": {
-      "command": "/Users/p789/.local/bin/uvx",
-      "args": ["mcp-server-fetch"]
-    }
-  }
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { Agent } from '../../../usecases/core/agentConfig';
+import { Coder } from '../../../usecases/core/agentConfig';
 
 export interface AutoCompleteItem {
   id: string;
@@ -9,10 +9,10 @@ export interface AutoCompleteItem {
 }
 
 export interface AutoCompleteInputProps {
-  items: Agent[];
+  items: Coder[];
   triggerChar: string;
   initialInput: string;
-  agentConfig: Agent;
+  agentConfig: Coder;
   selectedIndex: number;
 }
 
@@ -41,7 +41,7 @@ export const AutoCompleteInput = ({
           marginTop={0}
         >
           <Box marginBottom={1}>
-            <Text color="white">Select an agent:</Text>
+            <Text color="white">Select a coder:</Text>
           </Box>
           {items.map((item, index) => (
             <Text

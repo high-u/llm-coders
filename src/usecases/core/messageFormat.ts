@@ -1,5 +1,5 @@
 export interface ChatMessage {
-	role: 'user' | 'assistant' | 'tool';
+	role: 'user' | 'assistant' | 'tool' | 'system';
 	content: string;
 	tool_call_id?: string;
 	tool_calls?: ToolCall[];
@@ -21,13 +21,16 @@ export interface StreamEvent {
 	tool_call?: ToolCall;
 }
 
-export const createChatMessage = (role: 'user' | 'assistant', content: string): ChatMessage => ({
+export const createChatMessage = (role: 'user' | 'assistant' | 'system', content: string): ChatMessage => ({
 	role,
 	content
 });
 
 export const formatUserMessage = (content: string): ChatMessage => 
 	createChatMessage('user', content);
+
+export const formatSystemMessage = (content: string): ChatMessage => 
+	createChatMessage('system', content);
 
 export const formatAssistantMessage = (content: string, tool_calls?: ToolCall[]): ChatMessage => ({
 	role: 'assistant',
@@ -46,7 +49,7 @@ export const validateChatMessage = (message: any): message is ChatMessage => {
 		typeof message === 'object' &&
 		message !== null &&
 		typeof message.role === 'string' &&
-		(message.role === 'user' || message.role === 'assistant' || message.role === 'tool') &&
+		(message.role === 'user' || message.role === 'assistant' || message.role === 'tool' || message.role === 'system') &&
 		typeof message.content === 'string'
 	);
 };
