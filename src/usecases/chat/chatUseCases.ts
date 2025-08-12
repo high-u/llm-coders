@@ -5,6 +5,7 @@ import { LLMExternal, createLLMExternal } from '../../externals/llm/index';
 import { ConversationHistoryRepository, createConversationHistoryRepository } from '../../externals/conversationHistory';
 import { ConfigurationExternal, createConfigurationExternal } from '../../externals/configuration';
 import { MCPExternal } from '../../externals/mcp';
+import type { ChatFactoryDependencies } from './dependencies';
 
 export interface ChatUseCases {
 	chat: (
@@ -17,15 +18,7 @@ export interface ChatUseCases {
 	getAgents: () => Agent[];
 }
 
-export interface ChatUseCasesDependencies {
-  llm?: LLMExternal;
-  history?: ConversationHistoryRepository;
-  configuration?: ConfigurationExternal;
-  mcp?: MCPExternal;
-}
-
-
-export const createChatUseCases = (deps: ChatUseCasesDependencies = {}): ChatUseCases => {
+export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseCases => {
 	// usecases層で依存関係の組み立てを実行（エントリからの DI を優先）
 	const llmExternal = deps.llm ?? createLLMExternal();
 	const conversationHistoryRepository = deps.history ?? createConversationHistoryRepository();
