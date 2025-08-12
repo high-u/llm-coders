@@ -104,6 +104,18 @@ export const createLLMExternal = (): LLMExternal => ({
 					}
 				}
 
+				// LLMレスポンス完了ログを出力
+				const responseCompleteLog = {
+					ts: new Date().toISOString(),
+					source: 'llm',
+					event: 'response_complete',
+					response: {
+						content: assistantResponse,
+						tool_calls: toolCalls
+					}
+				};
+				console.error(JSON.stringify(responseCompleteLog, null, 2));
+
 				// アシスタントメッセージを履歴に追加
 				if (assistantResponse || toolCalls.length > 0) {
 					const assistantMessage = formatAssistantMessage(assistantResponse, toolCalls);
