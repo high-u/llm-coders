@@ -1,6 +1,14 @@
-import { Agent } from '../../../usecases/core/agentConfig';
+import { McpServerDefinition } from '../types';
 
-export const parseAgentsFromConfig = (configData: any): Agent[] => {
+export interface RawAgent {
+  id: string;
+  name: string;
+  endpoint: string;
+  model: string;
+  color: string;
+}
+
+export const parseAgentsFromConfig = (configData: any): RawAgent[] => {
 	if (!configData || !Array.isArray(configData.agents)) {
 		throw new Error('Invalid config: agents must be an array');
 	}
@@ -18,4 +26,18 @@ export const parseAgentsFromConfig = (configData: any): Agent[] => {
 			color: agent.color
 		};
 	});
+};
+
+export const parseMcpServersFromConfig = (configData: any): McpServerDefinition[] => {
+  const servers = configData?.mcpServer ?? {};
+  if (!servers || typeof servers !== 'object') return [];
+  return Object.entries(servers).map(([name, value]: [string, any]) => ({
+    name,
+    transport: (value?.transport as any) ?? 'stdio',
+    command: value?.command,
+    args: Array.isArray(value?.args) ? value.args : undefined,
+    url: value?.url,
+    host: value?.host,
+    port: typeof value?.port === 'number' ? value.port : undefined
+  }));
 };

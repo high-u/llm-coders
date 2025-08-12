@@ -1,5 +1,14 @@
-import { ChatMessage } from '../../usecases/core/messageFormat';
-import { getHistoryCopy, addMessageToHistory, clearHistory as clearHistoryCore } from '../../usecases/core/historyUtils';
+// Local structural type to avoid importing core/usecases
+export interface ChatMessage {
+  role: 'user' | 'assistant' | 'tool';
+  content: string;
+  tool_call_id?: string;
+  tool_calls?: {
+    id: string;
+    type: 'function';
+    function: { name: string; arguments: string };
+  }[];
+}
 
 export interface ConversationHistoryRepository {
 	add: (message: ChatMessage) => void;
@@ -13,15 +22,15 @@ export const createConversationHistoryRepository = (): ConversationHistoryReposi
 
 	return {
 		add: (message: ChatMessage): void => {
-			history = addMessageToHistory(history, message);
+			history = [...history, message];
 		},
 
 		clear: (): void => {
-			history = clearHistoryCore();
+			history = [];
 		},
 
 		getHistory: (): ChatMessage[] => {
-			return getHistoryCopy(history);
+			return [...history];
 		},
 
 		filterByAgent: (agentName: string): ChatMessage[] => {

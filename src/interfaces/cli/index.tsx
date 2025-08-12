@@ -1,10 +1,11 @@
-import React, {useState} from 'react';
-import {Text, Box} from 'ink';
+import React, {useState, useRef} from 'react';
+import {Text, Box, useInput} from 'ink';
 import {AutoCompleteInput} from './components/SelectItem';
 import {NormalInput} from './components/NormalInput';
 import { Agent } from '../../usecases/core/agentConfig';
 import { convertToDisplayItems } from '../../usecases/core/agentConfig';
-import { createChatUseCases } from '../../usecases/chat/chatUseCases';
+import { ChatUseCases } from '../../usecases/chat/chatUseCases';
+import { createChunkNormalizer } from './components/utilities/inputNormalization';
 
 const asciiArt = `
   ██████╗   ██████╗   ██████╗   ████████╗ ██████╗     ██████╗ 
@@ -22,13 +23,16 @@ interface CommandEntry {
 	agentName: string;
 }
 
-// usecases層で依存関係を組み立て
-const chatUseCases = createChatUseCases();
+export interface CommandInterfaceProps {
+  chatUseCases: ChatUseCases;
+}
 
-export const CommandInterface = () => {
+export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 	const [input, setInput] = useState('');
 	const [history, setHistory] = useState<CommandEntry[]>([]);
 	const [isProcessing, setIsProcessing] = useState(false);
+	const [selectedIndex, setSelectedIndex] = useState(0);
+	const normalizerRef = useRef(createChunkNormalizer());
 	
 	const agents: Agent[] = chatUseCases.getAgents();
 	const [selectedAgentConfig, setSelectedAgentConfig] = useState<Agent>(agents[0]);
@@ -38,6 +42,15 @@ export const CommandInterface = () => {
 
 	// オートコンプリート判定
 	const isAutoCompleting = input.startsWith('@') || input.startsWith('/');
+	
+	// フィルタリングされたアイテム（オートコンプリート時のみ）
+	const filteredItems = isAutoCompleting
+		? agentItems.filter(item => {
+				const filterText = input.slice(1);
+				if (!filterText) return true;
+				return item.name.toLowerCase().startsWith(filterText.toLowerCase());
+			})
+		: [];
 
 	// 通常入力の送信処理
 	const handleNormalSubmit = (text: string) => {
@@ -57,12 +70,67 @@ export const CommandInterface = () => {
 		chatUseCases.clearHistory(); // 履歴クリア
 		setSelectedAgentConfig(agent);
 		setInput(''); // 通常入力に戻る
+		setSelectedIndex(0); // インデックスリセット
 	};
 
 	// オートコンプリートキャンセル
 	const handleAutoCompleteCancel = () => {
 		setInput(''); // 通常入力に戻る
+		setSelectedIndex(0); // インデックスリセット
 	};
+
+	// 共通キー入力処理
+	useInput((inputChar, key) => {
+		let chunk = inputChar;
+		if (chunk && !key.ctrl) {
+			chunk = normalizerRef.current.normalize(chunk);
+		}
+
+		// 共通のCtrl+C処理
+		if (key.ctrl && inputChar === 'c') {
+			process.exit(0);
+		} else if (isAutoCompleting) {
+			// オートコンプリート時の処理
+			if (key.upArrow && filteredItems.length > 0) {
+				setSelectedIndex(prev => prev > 0 ? prev - 1 : filteredItems.length - 1);
+			} else if (key.downArrow && filteredItems.length > 0) {
+				setSelectedIndex(prev => prev < filteredItems.length - 1 ? prev + 1 : 0);
+			} else if (key.return && filteredItems.length > 0) {
+				handleAgentSelect(filteredItems[selectedIndex]);
+			} else if (key.escape) {
+				handleAutoCompleteCancel();
+			} else if (key.backspace || key.delete) {
+				if (input.length > 1) {
+					setInput(prev => prev.slice(0, -1));
+					setSelectedIndex(0);
+				} else {
+					handleAutoCompleteCancel();
+				}
+			} else if (inputChar && !key.ctrl) {
+				if (chunk) {
+					setInput(prev => prev + chunk);
+					setSelectedIndex(0);
+				}
+			}
+		} else {
+			// 通常入力時の処理
+			if (key.ctrl && inputChar === 'j') {
+				setInput(prev => prev + '\n');
+			} else if (key.return) {
+				if (input.trim() && !isProcessing) {
+					handleNormalSubmit(input);
+				}
+			} else if (key.backspace || key.delete) {
+				setInput(prev => prev.slice(0, -1));
+			} else if ((inputChar === '@' || inputChar === '/') && input === '') {
+				handleAutoCompleteStart(inputChar);
+			} else if (inputChar && !key.ctrl && !isProcessing) {
+				if (chunk) {
+					setInput(prev => prev + chunk);
+				}
+			}
+		}
+	});
 
 	const callOllamaAPI = async (prompt: string) => {
 		setIsProcessing(true);
@@ -82,6 +150,44 @@ export const CommandInterface = () => {
 					case 'chunk':
 						if (event.data) {
 							accumulatedOutput += event.data;
+							setHistory(prev => prev.map((entry, index) => 
+								index === commandIndex 
+									? { ...entry, output: accumulatedOutput }
+									: entry
+							));
+						}
+						break;
+
+					case 'tool_call_start':
+						{
+							const toolName = event.tool_call?.function?.name || 'unknown';
+							const line = `\n[Tool] Executing tool: ${toolName} ...\n`;
+							accumulatedOutput += line;
+							setHistory(prev => prev.map((entry, index) => 
+								index === commandIndex 
+									? { ...entry, output: accumulatedOutput }
+									: entry
+							));
+						}
+						break;
+
+					case 'tool_call_result':
+						{
+							const line = `\n[Tool] Completed tool execution.\n`;
+							accumulatedOutput += line;
+							setHistory(prev => prev.map((entry, index) => 
+								index === commandIndex 
+									? { ...entry, output: accumulatedOutput }
+									: entry
+							));
+						}
+						break;
+
+					case 'tool_call_error':
+						{
+							const err = event.error || 'Unknown error';
+							const line = `\n[Tool] Tool execution failed: ${err}\n`;
+							accumulatedOutput += line;
 							setHistory(prev => prev.map((entry, index) => 
 								index === commandIndex 
 									? { ...entry, output: accumulatedOutput }
@@ -128,21 +234,17 @@ export const CommandInterface = () => {
 			
 			{isAutoCompleting ? (
 				<AutoCompleteInput
-					items={agentItems}
+					items={filteredItems}
 					triggerChar={input[0]} // '@' or '/'
 					initialInput={input}
 					agentConfig={selectedAgentConfig}
-					onSelect={handleAgentSelect}
-					onCancel={handleAutoCompleteCancel}
+					selectedIndex={selectedIndex}
 				/>
 			) : (
 				<NormalInput
 					input={input}
 					agentConfig={selectedAgentConfig}
 					isProcessing={isProcessing}
-					onInputChange={setInput}
-					onSubmit={handleNormalSubmit}
-					onAutoCompleteStart={handleAutoCompleteStart}
 				/>
 			)}
 		</Box>

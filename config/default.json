@@ -12,5 +12,11 @@
       "model": "qwen3:4b-instruct-2507-q8_0",
       "color": "#0080f0"
     }
-  ]
+  ],
+  "mcpServer": {
+    "mcp-server-fetch": {
+      "command": "/Users/p789/.local/bin/uvx",
+      "args": ["mcp-server-fetch"]
+    }
+  }
 }

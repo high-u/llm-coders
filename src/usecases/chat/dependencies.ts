@@ -1,9 +1,15 @@
 import type { LLMExternal } from '../../externals/llm/index';
-import { ConversationHistoryRepository } from '../../externals/conversationHistory';
-import { ConfigurationExternal } from '../../externals/configuration';
+import type { ConversationHistoryRepository } from '../../externals/conversationHistory';
+import type { ConfigurationExternal } from '../../externals/configuration';
+import type { MCPExternal } from '../../externals/mcp';
 
+// usecases 層で依存関係の単一定義源
 export interface ChatDependencies {
-	llmExternal: LLMExternal;
-	conversationHistoryRepository: ConversationHistoryRepository;
-	configurationExternal: ConfigurationExternal;
+  llm: LLMExternal;
+  history: ConversationHistoryRepository;
+  configuration: ConfigurationExternal;
+  mcp?: MCPExternal;
 }
+
+// ファクトリ引数用に Partial を提供
+export type ChatFactoryDependencies = Partial<ChatDependencies>;

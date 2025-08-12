@@ -4,7 +4,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "npx tsx src/index.tsx",
+    "dev": "npx tsx src/index.tsx 2> logs/debug.jsonl",
     "build": "tsc",
     "test": "tsc --noEmit"
   },
@@ -13,6 +13,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.2",
     "config": "^4.1.0",
     "ink": "^6.1.0",
     "react": "^19.1.1"

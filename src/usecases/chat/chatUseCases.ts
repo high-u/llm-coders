@@ -1,9 +1,13 @@
 import { Agent } from '../core/agentConfig';
 import { StreamEvent, ChatMessage } from '../core/messageFormat';
-import { formatUserMessage, formatAssistantMessage } from '../core/messageFormat';
-import { createLLMExternal } from '../../externals/llm/index';
-import { createConversationHistoryRepository } from '../../externals/conversationHistory';
-import { createConfigurationExternal } from '../../externals/configuration';
+import { formatUserMessage } from '../core/messageFormat';
+import { LLMExternal, createLLMExternal } from '../../externals/llm/index';
+import { ConversationHistoryRepository, createConversationHistoryRepository } from '../../externals/conversationHistory';
+import { ConfigurationExternal, createConfigurationExternal } from '../../externals/configuration';
+import { MCPExternal } from '../../externals/mcp';
+import type { ChatFactoryDependencies } from './dependencies';
+import { mapMcpToolsToOpenAi } from '../core/mapMcpToolsToOpenAi';
+import type { OpenAITool } from '../core/toolTypes';
 
 export interface ChatUseCases {
 	chat: (
@@ -16,11 +20,12 @@ export interface ChatUseCases {
 	getAgents: () => Agent[];
 }
 
-export const createChatUseCases = (): ChatUseCases => {
-	// usecases層で依存関係の組み立てを実行
-	const llmExternal = createLLMExternal();
-	const conversationHistoryRepository = createConversationHistoryRepository();
-	const configurationExternal = createConfigurationExternal();
+export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseCases => {
+	// usecases層で依存関係の組み立てを実行（エントリからの DI を優先）
+	const llmExternal = deps.llm ?? createLLMExternal();
+	const conversationHistoryRepository = deps.history ?? createConversationHistoryRepository();
+	const configurationExternal = deps.configuration ?? createConfigurationExternal();
+	const mcpExternal = deps.mcp;
 
 	return {
 		chat: async (
@@ -32,27 +37,38 @@ export const createChatUseCases = (): ChatUseCases => {
 			const userMessage = formatUserMessage(userPrompt);
 			conversationHistoryRepository.add(userMessage);
 			
-			// 2. 現在の履歴を取得してLLMに送信
+			// 2. LLMに会話を委譲（MCP統合済み）
 			const currentHistory = conversationHistoryRepository.getHistory();
-			let assistantResponse = '';
-			
-			await llmExternal.streamChat(
+
+			// usecases 側で MCP ツールを取得し、OpenAI 互換へ変換
+			let tools: OpenAITool[] | undefined = undefined;
+			if (mcpExternal) {
+				try {
+					const mcpTools = await mcpExternal.listTools();
+					tools = mapMcpToolsToOpenAi(mcpTools);
+				} catch {
+					tools = undefined;
+				}
+			}
+
+			const updatedHistory = await llmExternal.streamChat(
 				agent.endpoint,
 				agent.model,
 				currentHistory,
-				(event: StreamEvent) => {
-					if (event.type === 'chunk' && event.data) {
-						assistantResponse += event.data;
-					} else if (event.type === 'complete') {
-						// 3. アシスタント応答を履歴に追加
-						const assistantMessage = formatAssistantMessage(assistantResponse);
-						conversationHistoryRepository.add(assistantMessage);
-					}
-					
-					// 4. 元のイベントハンドラーに転送
+				// usecases 層でイベントを受け取り、UI 向けに転送（3層チェーン順守）
+				(event) => {
+					// 将来ここでドメイン変換やフィルタリングが可能
 					onEvent(event);
+				},
+				{ 
+					mcpExternal, // DIでMCP機能を注入
+					tools
 				}
 			);
+			
+			// 3. 更新された履歴を同期（ユーザーメッセージ以降の更新分のみ）
+			const newMessages = updatedHistory.slice(currentHistory.length);
+			newMessages.forEach(message => conversationHistoryRepository.add(message));
 		},
 
 		clearHistory: (): void => {
