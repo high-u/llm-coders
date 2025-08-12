@@ -1,8 +1,8 @@
-import { ChatMessage, StreamEvent } from '../../usecases/core/messageFormat';
-import { OpenAITool } from '../../usecases/core/toolTypes';
+import type { ChatMessage, StreamEvent, OpenAITool, ToolCall } from './types';
 import { MCPExternal } from '../mcp';
 import { formatEndpoint } from './functions/formatRequest';
 import { processStreamChunk } from './functions/parseStream';
+// No cross-layer helpers; construct objects inline per layer-local types
 
 export interface LLMExternal {
 	streamChat: (
@@ -13,12 +13,10 @@ export interface LLMExternal {
 		options?: { 
 			mcpExternal?: MCPExternal;
 			toolChoice?: any;
+			tools?: OpenAITool[];
 		}
 	) => Promise<ChatMessage[]>; // 更新された履歴を返す
 }
-
-import { mapMcpToolsToOpenAi } from '../../usecases/core/mapMcpToolsToOpenAi';
-import { formatAssistantMessage, formatToolMessage } from '../../usecases/core/messageFormat';
 
 export const createLLMExternal = (): LLMExternal => ({
 	streamChat: async (
@@ -29,19 +27,12 @@ export const createLLMExternal = (): LLMExternal => ({
 		options?: { 
 			mcpExternal?: MCPExternal;
 			toolChoice?: any;
+			tools?: OpenAITool[];
 		}
 	): Promise<ChatMessage[]> => {
 		try {
-			// MCPツールを取得してOpenAI互換に変換
-			let tools: OpenAITool[] | undefined = undefined;
-			if (options?.mcpExternal) {
-				try {
-					const mcpTools = await options.mcpExternal.listTools();
-					tools = mapMcpToolsToOpenAi(mcpTools);
-				} catch {
-					tools = undefined;
-				}
-			}
+      // ツール定義は usecases 側から注入
+      const tools: OpenAITool[] | undefined = options?.tools;
 
 			// 履歴をコピー（直接変更を避ける）
 			let currentMessages: ChatMessage[] = [...messages];
@@ -116,9 +107,13 @@ export const createLLMExternal = (): LLMExternal => ({
 				};
 				console.error(JSON.stringify(responseCompleteLog, null, 2));
 
-				// アシスタントメッセージを履歴に追加
+				// アシスタントメッセージを履歴に追加（インライン生成）
 				if (assistantResponse || toolCalls.length > 0) {
-					const assistantMessage = formatAssistantMessage(assistantResponse, toolCalls);
+					const assistantMessage: ChatMessage = {
+						role: 'assistant',
+						content: assistantResponse,
+						tool_calls: toolCalls
+					};
 					currentMessages.push(assistantMessage);
 				}
 
@@ -196,8 +191,12 @@ export const createLLMExternal = (): LLMExternal => ({
 						});
 					}
 					
-					// ツールメッセージを履歴に追加
-					const toolMessage = formatToolMessage(toolContent, toolCall.id);
+					// ツールメッセージを履歴に追加（インライン生成）
+					const toolMessage: ChatMessage = {
+						role: 'tool',
+						content: toolContent,
+						tool_call_id: toolCall.id
+					};
 					currentMessages.push(toolMessage);
 				}
 				

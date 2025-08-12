@@ -1,4 +1,3 @@
-import { McpTool } from '../../usecases/core/toolTypes';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
@@ -10,6 +9,13 @@ export interface McpServerConfig {
   url?: string;
   host?: string;
   port?: number;
+}
+
+export interface McpTool {
+  name: string;
+  description?: string;
+  parameters?: Record<string, any>;
+  serverName?: string;
 }
 
 export interface MCPExternal {

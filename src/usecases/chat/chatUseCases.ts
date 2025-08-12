@@ -6,6 +6,8 @@ import { ConversationHistoryRepository, createConversationHistoryRepository } fr
 import { ConfigurationExternal, createConfigurationExternal } from '../../externals/configuration';
 import { MCPExternal } from '../../externals/mcp';
 import type { ChatFactoryDependencies } from './dependencies';
+import { mapMcpToolsToOpenAi } from '../core/mapMcpToolsToOpenAi';
+import type { OpenAITool } from '../core/toolTypes';
 
 export interface ChatUseCases {
 	chat: (
@@ -37,6 +39,18 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 			
 			// 2. LLMに会話を委譲（MCP統合済み）
 			const currentHistory = conversationHistoryRepository.getHistory();
+
+			// usecases 側で MCP ツールを取得し、OpenAI 互換へ変換
+			let tools: OpenAITool[] | undefined = undefined;
+			if (mcpExternal) {
+				try {
+					const mcpTools = await mcpExternal.listTools();
+					tools = mapMcpToolsToOpenAi(mcpTools);
+				} catch {
+					tools = undefined;
+				}
+			}
+
 			const updatedHistory = await llmExternal.streamChat(
 				agent.endpoint,
 				agent.model,
@@ -47,7 +61,8 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 					onEvent(event);
 				},
 				{ 
-					mcpExternal  // DIでMCP機能を注入
+					mcpExternal, // DIでMCP機能を注入
+					tools
 				}
 			);
 			

@@ -1,16 +1,16 @@
 import config from 'config';
-import { Agent } from '../../usecases/core/agentConfig';
 import { parseAgentsFromConfig, parseMcpServersFromConfig } from './functions/parseConfig';
 import { validateConfigStructure } from './functions/validateConfig';
 import type { McpServerDefinition } from './types';
+import type { RawAgent } from './functions/parseConfig';
 
 export interface ConfigurationExternal {
-	getAgents: () => Agent[];
+	getAgents: () => RawAgent[];
   getMcpServers: () => McpServerDefinition[];
 }
 
 export const createConfigurationExternal = (): ConfigurationExternal => ({
-	getAgents: (): Agent[] => {
+	getAgents: (): RawAgent[] => {
 		const configData = config.util.toObject();
 		
 		if (!validateConfigStructure(configData)) {

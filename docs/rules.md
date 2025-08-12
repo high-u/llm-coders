@@ -24,12 +24,15 @@
 └── externals/                 # 命令型シェル（副作用）
     ├── postgres/              # DB操作
     │   ├── functions/         # 純粋関数
+    │   ├── types.ts           # 外部に公開する型
     │   └── index.ts
     ├── openai-compatible-api/ # 外部API
     │   ├── functions/         # 純粋関数
+    │   ├── types.ts           # 外部に公開する型
     │   └── index.ts
     └── filesystem/            # ファイル操作
         ├── functions/         # 純粋関数
+    │   ├── types.ts           # 外部に公開する型
         └── index.ts
 ```
 
