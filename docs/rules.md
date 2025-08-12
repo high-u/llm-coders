@@ -31,7 +31,6 @@
     └── filesystem/            # ファイル操作
         ├── functions/         # 純粋関数
         └── index.ts
-
 ```
 
 - 上記のファイルとフォルダは参考。実際の要件や仕様に合わせる。
@@ -534,6 +533,57 @@ export const createUserUseCases = (deps: UserDependencies) => ({
   // 型により依存関係が明確
 });
 ```
+
+## externals間協調の補足ルール
+
+5つの必須ルールを遵守した上で、特定条件下でのexternals間協調パターンを許可する：
+
+### usecases層によるDI制御パターン
+
+externals同士は直接依存できないが、usecases層による依存制御は許可される：
+
+#### ✅ 許可されるパターン：usecases層によるDI制御
+
+```typescript
+// usecases層でexternals間の協調をDI制御
+await llmExternal.streamChat(
+    endpoint,
+    model,
+    messages,
+    onEvent,
+    { 
+        mcpExternal  // 別のexternalをDI注入
+    }
+);
+```
+
+#### ❌ 禁止されるパターン：externals間の直接依存
+
+```typescript
+// externals/llm/index.ts
+import { MCPExternal } from '../mcp';  // NG: 直接依存
+```
+
+### 適用条件
+
+- 同一ドメインフロー内の協調: LLMとツール実行のような単一処理フローでの協調
+- usecases層による制御: 依存関係の組み立てと制御はusecases層で実行
+- 型による依存明示: DI対象はインターフェースで明確に定義
+
+### 判断基準
+
+協調が必要か迷った場合：
+
+- 単一の処理フロー内で完結するか？ → DI許可
+- 独立した処理として分離可能か？ → 分離を選択
+- 将来的な独立性は保たれるか？ → DI許可
+
+### なぜこのパターンを許可？
+
+- 責任の自然な配置: 複合的な処理の責任を適切な層に配置
+- usecases層による制御: 依存関係はusecases層が完全に制御
+- externals間の疎結合: 直接依存ではないため独立性を保持
+- テスタビリティ: DI注入によりモック化が容易
 
 ## DI境界の属人化防止ルール
 
