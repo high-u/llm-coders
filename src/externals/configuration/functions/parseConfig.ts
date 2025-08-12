@@ -1,29 +1,46 @@
 import { McpServerDefinition } from '../types';
 
-export interface RawAgent {
+export interface RawCoder {
   id: string;
   name: string;
   endpoint: string;
   model: string;
+  modelId: string;
   color: string;
+  systemPrompt?: string;
 }
 
-export const parseAgentsFromConfig = (configData: any): RawAgent[] => {
-	if (!configData || !Array.isArray(configData.agents)) {
-		throw new Error('Invalid config: agents must be an array');
+export const parseCodersFromConfig = (configData: any): RawCoder[] => {
+	if (!configData || !Array.isArray(configData.coders)) {
+		throw new Error('Invalid config: coders must be an array');
 	}
 
-	return configData.agents.map((agent: any, index: number) => {
-		if (!agent.name || !agent.endpoint || !agent.model || !agent.color) {
-			throw new Error(`Invalid agent at index ${index}: missing required fields`);
+	if (!configData.model || typeof configData.model !== 'object') {
+		throw new Error('Invalid config: model must be an object');
+	}
+
+	return configData.coders.map((coder: any, index: number) => {
+		if (!coder.name || !coder.model || !coder.color) {
+			throw new Error(`Invalid coder at index ${index}: missing required fields`);
+		}
+
+		const modelConfig = configData.model[coder.model];
+		if (!modelConfig) {
+			throw new Error(`Invalid coder at index ${index}: model "${coder.model}" not found`);
+		}
+
+		if (!modelConfig.endpoint || !modelConfig.modelId) {
+			throw new Error(`Invalid model "${coder.model}": missing endpoint or modelId`);
 		}
 
 		return {
-			id: agent.name,
-			name: agent.name,
-			endpoint: agent.endpoint,
-			model: agent.model,
-			color: agent.color
+			id: coder.name,
+			name: coder.name,
+			endpoint: modelConfig.endpoint,
+			model: coder.model,
+			modelId: modelConfig.modelId,
+			color: coder.color,
+			systemPrompt: coder.systemPrompt
 		};
 	});
 };

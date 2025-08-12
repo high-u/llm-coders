@@ -1,6 +1,6 @@
-import { Agent } from '../core/agentConfig';
+import { Coder } from '../core/agentConfig';
 import { StreamEvent, ChatMessage } from '../core/messageFormat';
-import { formatUserMessage } from '../core/messageFormat';
+import { formatUserMessage, formatSystemMessage } from '../core/messageFormat';
 import { LLMExternal, createLLMExternal } from '../../externals/llm/index';
 import { ConversationHistoryRepository, createConversationHistoryRepository } from '../../externals/conversationHistory';
 import { ConfigurationExternal, createConfigurationExternal } from '../../externals/configuration';
@@ -11,13 +11,13 @@ import type { OpenAITool } from '../core/toolTypes';
 
 export interface ChatUseCases {
 	chat: (
-		agent: Agent,
+		coder: Coder,
 		userPrompt: string,
 		onEvent: (event: StreamEvent) => void
 	) => Promise<void>;
 	clearHistory: () => void;
 	getHistory: () => ChatMessage[];
-	getAgents: () => Agent[];
+	getCoders: () => Coder[];
 }
 
 export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseCases => {
@@ -29,16 +29,23 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 
 	return {
 		chat: async (
-			agent: Agent,
+			coder: Coder,
 			userPrompt: string,
 			onEvent: (event: StreamEvent) => void
 		): Promise<void> => {
-			// 1. ユーザーメッセージを履歴に追加
+			// 1. システムプロンプトを履歴の最初に追加（初回のみ）
+			const currentHistory = conversationHistoryRepository.getHistory();
+			if (currentHistory.length === 0 && coder.systemPrompt) {
+				const systemMessage = formatSystemMessage(coder.systemPrompt);
+				conversationHistoryRepository.add(systemMessage);
+			}
+			
+			// 2. ユーザーメッセージを履歴に追加
 			const userMessage = formatUserMessage(userPrompt);
 			conversationHistoryRepository.add(userMessage);
 			
-			// 2. LLMに会話を委譲（MCP統合済み）
-			const currentHistory = conversationHistoryRepository.getHistory();
+			// 3. LLMに会話を委譲（MCP統合済み）
+			const updatedCurrentHistory = conversationHistoryRepository.getHistory();
 
 			// usecases 側で MCP ツールを取得し、OpenAI 互換へ変換
 			let tools: OpenAITool[] | undefined = undefined;
@@ -52,9 +59,9 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 			}
 
 			const updatedHistory = await llmExternal.streamChat(
-				agent.endpoint,
-				agent.model,
-				currentHistory,
+				coder.endpoint,
+				coder.modelId,
+				updatedCurrentHistory,
 				// usecases 層でイベントを受け取り、UI 向けに転送（3層チェーン順守）
 				(event) => {
 					// 将来ここでドメイン変換やフィルタリングが可能
@@ -66,8 +73,8 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 				}
 			);
 			
-			// 3. 更新された履歴を同期（ユーザーメッセージ以降の更新分のみ）
-			const newMessages = updatedHistory.slice(currentHistory.length);
+			// 4. 更新された履歴を同期（ユーザーメッセージ以降の更新分のみ）
+			const newMessages = updatedHistory.slice(updatedCurrentHistory.length);
 			newMessages.forEach(message => conversationHistoryRepository.add(message));
 		},
 
@@ -79,8 +86,8 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 			return conversationHistoryRepository.getHistory();
 		},
 
-		getAgents: (): Agent[] => {
-			return configurationExternal.getAgents();
+		getCoders: (): Coder[] => {
+			return configurationExternal.getCoders();
 		}
 	};
 };

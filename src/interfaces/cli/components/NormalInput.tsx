@@ -1,10 +1,10 @@
 import React from 'react';
 import { Text } from 'ink';
-import { Agent } from '../../../usecases/core/agentConfig';
+import { Coder } from '../../../usecases/core/agentConfig';
 
 export interface NormalInputProps {
   input: string;
-  agentConfig: Agent;
+  agentConfig: Coder;
   isProcessing: boolean;
 }
 
