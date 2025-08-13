@@ -8,6 +8,7 @@ import { MCPExternal } from '../../externals/mcp';
 import type { ChatFactoryDependencies } from './dependencies';
 import { mapMcpToolsToOpenAi } from '../core/mapMcpToolsToOpenAi';
 import { mapConfigToolsToOpenAi } from '../core/mapConfigToolsToOpenAi';
+import { sanitizeConfigTools, sanitizeMcpTools } from '../core/validateTools';
 import type { OpenAITool } from '../core/toolTypes';
 
 export interface ChatUseCases {
@@ -51,14 +52,19 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 			// usecases 側で config ツールと MCP ツールを取得し、OpenAI 互換へ変換して結合
 			let tools: OpenAITool[] | undefined = undefined;
 			try {
-				const configTools = configurationExternal.getTools();
+				const configToolsRaw = configurationExternal.getTools();
+				const configTools = sanitizeConfigTools(configToolsRaw);
 				const openAiConfigTools = mapConfigToolsToOpenAi(configTools);
 
 				let openAiMcpTools: OpenAITool[] = [];
 				if (mcpExternal) {
 					try {
-						const mcpTools = await mcpExternal.listTools();
-						openAiMcpTools = mapMcpToolsToOpenAi(mcpTools);
+						const mcpToolsRaw = await mcpExternal.listTools();
+						const mcpTools = sanitizeMcpTools(
+							mcpToolsRaw as any,
+							new Set(configTools.map(t => t.name))
+						);
+						openAiMcpTools = mapMcpToolsToOpenAi(mcpTools as any);
 					} catch {
 						openAiMcpTools = [];
 					}
