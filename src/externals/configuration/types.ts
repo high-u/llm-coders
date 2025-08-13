@@ -10,3 +10,9 @@ export interface McpServerDefinition {
   port?: number;
 }
 
+export interface ConfigTool {
+  name: string;
+  description?: string;
+  model?: string;
+  systemPrompt?: string;
+}

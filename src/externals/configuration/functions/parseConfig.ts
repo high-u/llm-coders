@@ -1,4 +1,4 @@
-import { McpServerDefinition } from '../types';
+import { McpServerDefinition, ConfigTool } from '../types';
 
 export interface RawCoder {
   id: string;
@@ -57,4 +57,36 @@ export const parseMcpServersFromConfig = (configData: any): McpServerDefinition[
     host: value?.host,
     port: typeof value?.port === 'number' ? value.port : undefined
   }));
+};
+
+const TOOL_NAME_REGEX = /^[A-Za-z0-9](?:[A-Za-z0-9]|[_-](?=[A-Za-z0-9]))*[A-Za-z0-9]$/;
+
+export const parseToolsFromConfig = (configData: any): ConfigTool[] => {
+  const toolRoot = configData?.tool;
+  if (!toolRoot) return [];
+  if (typeof toolRoot !== 'object' || Array.isArray(toolRoot)) {
+    throw new Error('Invalid config: tool must be an object');
+  }
+
+  const names = new Set<string>();
+  const result: ConfigTool[] = [];
+  for (const [key, value] of Object.entries(toolRoot)) {
+    const name = String(key);
+    if (!TOOL_NAME_REGEX.test(name)) {
+      throw new Error(`Invalid tool name: ${name}`);
+    }
+    if (names.has(name)) {
+      throw new Error(`Duplicate tool name: ${name}`);
+    }
+    names.add(name);
+
+    const obj: any = value ?? {};
+    const description = typeof obj.description === 'string' ? obj.description : undefined;
+    const model = typeof obj.model === 'string' ? obj.model : undefined;
+    const systemPrompt = typeof obj.systemPrompt === 'string' ? obj.systemPrompt : undefined;
+
+    result.push({ name, description, model, systemPrompt });
+  }
+
+  return result;
 };

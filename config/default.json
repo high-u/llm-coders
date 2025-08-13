@@ -29,13 +29,11 @@
         "architect": {
             "model": "jan-nano-4b",
             "systemPrompt": "",
-            "arguments": [],
             "description": ""
         },
         "reviewer": {
             "model": "jan-nano-4b",
             "systemPrompt": "",
-            "arguments": [],
             "description": ""
         }
     },

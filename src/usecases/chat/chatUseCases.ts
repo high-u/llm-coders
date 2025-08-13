@@ -7,6 +7,7 @@ import { ConfigurationExternal, createConfigurationExternal } from '../../extern
 import { MCPExternal } from '../../externals/mcp';
 import type { ChatFactoryDependencies } from './dependencies';
 import { mapMcpToolsToOpenAi } from '../core/mapMcpToolsToOpenAi';
+import { mapConfigToolsToOpenAi } from '../core/mapConfigToolsToOpenAi';
 import type { OpenAITool } from '../core/toolTypes';
 
 export interface ChatUseCases {
@@ -47,15 +48,26 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 			// 3. LLMに会話を委譲（MCP統合済み）
 			const updatedCurrentHistory = conversationHistoryRepository.getHistory();
 
-			// usecases 側で MCP ツールを取得し、OpenAI 互換へ変換
+			// usecases 側で config ツールと MCP ツールを取得し、OpenAI 互換へ変換して結合
 			let tools: OpenAITool[] | undefined = undefined;
-			if (mcpExternal) {
-				try {
-					const mcpTools = await mcpExternal.listTools();
-					tools = mapMcpToolsToOpenAi(mcpTools);
-				} catch {
-					tools = undefined;
+			try {
+				const configTools = configurationExternal.getTools();
+				const openAiConfigTools = mapConfigToolsToOpenAi(configTools);
+
+				let openAiMcpTools: OpenAITool[] = [];
+				if (mcpExternal) {
+					try {
+						const mcpTools = await mcpExternal.listTools();
+						openAiMcpTools = mapMcpToolsToOpenAi(mcpTools);
+					} catch {
+						openAiMcpTools = [];
+					}
 				}
+
+				const combined = [...openAiConfigTools, ...openAiMcpTools];
+				tools = combined.length > 0 ? combined : undefined;
+			} catch {
+				tools = undefined;
 			}
 
 			const updatedHistory = await llmExternal.streamChat(
@@ -67,8 +79,9 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 					// 将来ここでドメイン変換やフィルタリングが可能
 					onEvent(event);
 				},
-				{ 
-					mcpExternal, // DIでMCP機能を注入
+				{
+					// 今回はツール呼び出し処理は未実装のため、実行抑止
+					toolChoice: 'none',
 					tools
 				}
 			);

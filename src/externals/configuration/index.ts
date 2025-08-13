@@ -1,12 +1,14 @@
 import config from 'config';
-import { parseCodersFromConfig, parseMcpServersFromConfig } from './functions/parseConfig';
+import { parseCodersFromConfig, parseMcpServersFromConfig, parseToolsFromConfig } from './functions/parseConfig';
 import { validateConfigStructure } from './functions/validateConfig';
 import type { McpServerDefinition } from './types';
 import type { RawCoder } from './functions/parseConfig';
+import type { ConfigTool } from './types';
 
 export interface ConfigurationExternal {
 	getCoders: () => RawCoder[];
   getMcpServers: () => McpServerDefinition[];
+  getTools: () => ConfigTool[];
 }
 
 export const createConfigurationExternal = (): ConfigurationExternal => ({
@@ -22,5 +24,9 @@ export const createConfigurationExternal = (): ConfigurationExternal => ({
   getMcpServers: (): McpServerDefinition[] => {
     const configData = config.util.toObject();
     return parseMcpServersFromConfig(configData);
+  },
+  getTools: (): ConfigTool[] => {
+    const configData = config.util.toObject();
+    return parseToolsFromConfig(configData);
   }
 });
