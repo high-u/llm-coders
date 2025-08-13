@@ -93,8 +93,7 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 					onEvent(event);
 				},
 				{
-					// 今回はツール呼び出し処理は未実装のため、実行抑止
-					toolChoice: 'none',
+					mcpExternal, // MCP を再注入してツール実行を有効化
 					tools
 				}
 			);
