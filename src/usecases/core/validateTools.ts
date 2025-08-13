@@ -1,5 +1,11 @@
-import type { ConfigTool } from '../../externals/configuration/types';
 import type { McpTool } from './toolTypes';
+
+export interface DomainConfigTool {
+  name: string;
+  description?: string;
+  model?: string;
+  systemPrompt?: string;
+}
 
 const NAME_REGEX = /^[A-Za-z0-9](?:[A-Za-z0-9]|[_-](?=[A-Za-z0-9]))*[A-Za-z0-9]$/;
 
@@ -8,9 +14,9 @@ const err = (msg: string): void => {
   console.error(msg);
 };
 
-export const sanitizeConfigTools = (tools: ConfigTool[]): ConfigTool[] => {
+export const sanitizeConfigTools = (tools: DomainConfigTool[]): DomainConfigTool[] => {
   const seen = new Set<string>();
-  const out: ConfigTool[] = [];
+  const out: DomainConfigTool[] = [];
   for (const t of tools) {
     const name = t.name;
     if (!NAME_REGEX.test(name)) {
@@ -49,4 +55,3 @@ export const sanitizeMcpTools = (tools: McpTool[], existingNames?: Set<string>):
   }
   return out;
 };
-

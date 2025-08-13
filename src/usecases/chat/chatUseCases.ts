@@ -9,6 +9,7 @@ import type { ChatFactoryDependencies } from './dependencies';
 import { mapMcpToolsToOpenAi } from '../core/mapMcpToolsToOpenAi';
 import { mapConfigToolsToOpenAi } from '../core/mapConfigToolsToOpenAi';
 import { sanitizeConfigTools, sanitizeMcpTools } from '../core/validateTools';
+import type { DomainConfigTool } from '../core/validateTools';
 import type { OpenAITool } from '../core/toolTypes';
 
 export interface ChatUseCases {
@@ -52,8 +53,14 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 			// usecases 側で config ツールと MCP ツールを取得し、OpenAI 互換へ変換して結合
 			let tools: OpenAITool[] | undefined = undefined;
 			try {
-				const configToolsRaw = configurationExternal.getTools();
-				const configTools = sanitizeConfigTools(configToolsRaw);
+				const configToolsRaw = configurationExternal.getTools() as any[];
+				const configToolsDomain: DomainConfigTool[] = (configToolsRaw || []).map((t: any) => ({
+					name: String(t?.name ?? ''),
+					description: typeof t?.description === 'string' ? t.description : undefined,
+					model: typeof t?.model === 'string' ? t.model : undefined,
+					systemPrompt: typeof t?.systemPrompt === 'string' ? t.systemPrompt : undefined
+				}));
+				const configTools = sanitizeConfigTools(configToolsDomain);
 				const openAiConfigTools = mapConfigToolsToOpenAi(configTools);
 
 				let openAiMcpTools: OpenAITool[] = [];

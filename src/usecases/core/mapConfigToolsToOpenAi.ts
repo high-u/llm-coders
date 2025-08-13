@@ -1,5 +1,5 @@
-import type { ConfigTool } from '../../externals/configuration/types';
 import type { OpenAITool } from './toolTypes';
+import type { DomainConfigTool } from './validateTools';
 
 // Common parameter schema for config-defined tools
 const parametersSchema = {
@@ -11,7 +11,7 @@ const parametersSchema = {
   additionalProperties: false
 };
 
-export const mapConfigToolsToOpenAi = (tools: ConfigTool[]): OpenAITool[] => {
+export const mapConfigToolsToOpenAi = (tools: DomainConfigTool[]): OpenAITool[] => {
   return tools.map((t) => ({
     type: 'function',
     function: {
@@ -21,4 +21,3 @@ export const mapConfigToolsToOpenAi = (tools: ConfigTool[]): OpenAITool[] => {
     }
   }));
 };
-
