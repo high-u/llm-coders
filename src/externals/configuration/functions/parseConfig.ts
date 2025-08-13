@@ -1,4 +1,4 @@
-import { McpServerDefinition } from '../types';
+import { McpServerDefinition, ConfigTool } from '../types';
 
 export interface RawCoder {
   id: string;
@@ -57,4 +57,25 @@ export const parseMcpServersFromConfig = (configData: any): McpServerDefinition[
     host: value?.host,
     port: typeof value?.port === 'number' ? value.port : undefined
   }));
+};
+
+export const parseToolsFromConfig = (configData: any): ConfigTool[] => {
+  const toolRoot = configData?.tool;
+  if (!toolRoot) return [];
+  if (typeof toolRoot !== 'object' || Array.isArray(toolRoot)) {
+    // externals 層では構造のみを扱うため、異常は空配列を返す
+    return [];
+  }
+
+  const result: ConfigTool[] = [];
+  for (const [key, value] of Object.entries(toolRoot)) {
+    const name = String(key);
+    const obj: any = value ?? {};
+    const description = typeof obj.description === 'string' ? obj.description : undefined;
+    const model = typeof obj.model === 'string' ? obj.model : undefined;
+    const systemPrompt = typeof obj.systemPrompt === 'string' ? obj.systemPrompt : undefined;
+    result.push({ name, description, model, systemPrompt });
+  }
+
+  return result;
 };

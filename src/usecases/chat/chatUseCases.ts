@@ -7,6 +7,9 @@ import { ConfigurationExternal, createConfigurationExternal } from '../../extern
 import { MCPExternal } from '../../externals/mcp';
 import type { ChatFactoryDependencies } from './dependencies';
 import { mapMcpToolsToOpenAi } from '../core/mapMcpToolsToOpenAi';
+import { mapConfigToolsToOpenAi } from '../core/mapConfigToolsToOpenAi';
+import { sanitizeConfigTools, sanitizeMcpTools } from '../core/validateTools';
+import type { DomainConfigTool } from '../core/validateTools';
 import type { OpenAITool } from '../core/toolTypes';
 
 export interface ChatUseCases {
@@ -47,15 +50,40 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 			// 3. LLMに会話を委譲（MCP統合済み）
 			const updatedCurrentHistory = conversationHistoryRepository.getHistory();
 
-			// usecases 側で MCP ツールを取得し、OpenAI 互換へ変換
+			// usecases 側で config ツールと MCP ツールを取得し、OpenAI 互換へ変換して結合
 			let tools: OpenAITool[] | undefined = undefined;
-			if (mcpExternal) {
-				try {
-					const mcpTools = await mcpExternal.listTools();
-					tools = mapMcpToolsToOpenAi(mcpTools);
-				} catch {
-					tools = undefined;
+			try {
+				const configToolsRaw = configurationExternal.getTools() as any[];
+				const configToolsDomain: DomainConfigTool[] = (configToolsRaw || []).map((t: any) => ({
+					name: String(t?.name ?? ''),
+					description: typeof t?.description === 'string' ? t.description : undefined,
+					model: typeof t?.model === 'string' ? t.model : undefined,
+					systemPrompt: typeof t?.systemPrompt === 'string' ? t.systemPrompt : undefined
+				}));
+				const configSanitized = sanitizeConfigTools(configToolsDomain);
+				// 現状ポリシー: 不正はstderrに出すだけで処理継続
+				configSanitized.errors.forEach((e) => console.error(e));
+				const openAiConfigTools = mapConfigToolsToOpenAi(configSanitized.sanitized);
+
+				let openAiMcpTools: OpenAITool[] = [];
+				if (mcpExternal) {
+					try {
+						const mcpToolsRaw = await mcpExternal.listTools();
+						const mcpSanitized = sanitizeMcpTools(
+							mcpToolsRaw as any,
+							new Set(configSanitized.sanitized.map(t => t.name))
+						);
+						mcpSanitized.errors.forEach((e) => console.error(e));
+						openAiMcpTools = mapMcpToolsToOpenAi(mcpSanitized.sanitized as any);
+					} catch {
+						openAiMcpTools = [];
+					}
 				}
+
+				const combined = [...openAiConfigTools, ...openAiMcpTools];
+				tools = combined.length > 0 ? combined : undefined;
+			} catch {
+				tools = undefined;
 			}
 
 			const updatedHistory = await llmExternal.streamChat(
@@ -67,10 +95,15 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 					// 将来ここでドメイン変換やフィルタリングが可能
 					onEvent(event);
 				},
-				{ 
-					mcpExternal, // DIでMCP機能を注入
-					tools
-				}
+				(() => {
+					const toolExecutor = mcpExternal
+						? { callTool: mcpExternal.callTool.bind(mcpExternal) }
+						: undefined;
+					return {
+						toolExecutor, // ツール実行は抽象I/Fで注入
+						tools
+					};
+				})()
 			);
 			
 			// 4. 更新された履歴を同期（ユーザーメッセージ以降の更新分のみ）

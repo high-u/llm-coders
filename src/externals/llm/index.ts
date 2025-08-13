@@ -1,5 +1,4 @@
-import type { ChatMessage, StreamEvent, OpenAITool, ToolCall } from './types';
-import { MCPExternal } from '../mcp';
+import type { ChatMessage, StreamEvent, OpenAITool, ToolCall, ToolExecutor } from './types';
 import { formatEndpoint } from './functions/formatRequest';
 import { processStreamChunk } from './functions/parseStream';
 // No cross-layer helpers; construct objects inline per layer-local types
@@ -10,8 +9,8 @@ export interface LLMExternal {
 		model: string,
 		messages: ChatMessage[],
 		onEvent: (event: StreamEvent) => void,
-		options?: { 
-			mcpExternal?: MCPExternal;
+		options?: {
+			toolExecutor?: ToolExecutor;
 			toolChoice?: any;
 			tools?: OpenAITool[];
 		}
@@ -24,8 +23,8 @@ export const createLLMExternal = (): LLMExternal => ({
 		model: string,
 		messages: ChatMessage[],
 		onEvent: (event: StreamEvent) => void,
-		options?: { 
-			mcpExternal?: MCPExternal;
+		options?: {
+			toolExecutor?: ToolExecutor;
 			toolChoice?: any;
 			tools?: OpenAITool[];
 		}
@@ -124,7 +123,7 @@ export const createLLMExternal = (): LLMExternal => ({
 				}
 
 				// ツール実行がない場合も終了
-				if (!options?.mcpExternal) {
+				if (!options?.toolExecutor) {
 					onEvent({ type: 'complete' });
 					break;
 				}
@@ -140,7 +139,7 @@ export const createLLMExternal = (): LLMExternal => ({
 							type: 'tool_call_start',
 							tool_call: toolCall
 						});
-						const result = await options.mcpExternal.callTool(toolCall.function.name, toolArgs);
+						const result = await options.toolExecutor.callTool(toolCall.function.name, toolArgs);
 						
 						if (result.content && Array.isArray(result.content) && result.content[0]?.text) {
 							toolContent = result.content[0].text;

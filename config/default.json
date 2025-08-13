@@ -29,14 +29,12 @@
         "architect": {
             "model": "jan-nano-4b",
             "systemPrompt": "",
-            "arguments": [],
-            "description": ""
+            "description": "Increase the resolution of the specifications."
         },
         "reviewer": {
             "model": "jan-nano-4b",
             "systemPrompt": "",
-            "arguments": [],
-            "description": ""
+            "description": "Reviews and Feedback"
         }
     },
     "mcpServer": {
