@@ -38,3 +38,14 @@ export interface OpenAITool {
   };
 }
 
+// Minimal interface for executing tools, injected from usecases.
+export interface ToolResult {
+  // MCP互換の最小構造（現状使用部分のみ）
+  content?: { text?: string }[];
+  // 将来の拡張のために任意フィールドも許容
+  [key: string]: any;
+}
+
+export interface ToolExecutor {
+  callTool: (name: string, args: Record<string, any>) => Promise<ToolResult>;
+}

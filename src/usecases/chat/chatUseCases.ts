@@ -60,18 +60,21 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 					model: typeof t?.model === 'string' ? t.model : undefined,
 					systemPrompt: typeof t?.systemPrompt === 'string' ? t.systemPrompt : undefined
 				}));
-				const configTools = sanitizeConfigTools(configToolsDomain);
-				const openAiConfigTools = mapConfigToolsToOpenAi(configTools);
+				const configSanitized = sanitizeConfigTools(configToolsDomain);
+				// 現状ポリシー: 不正はstderrに出すだけで処理継続
+				configSanitized.errors.forEach((e) => console.error(e));
+				const openAiConfigTools = mapConfigToolsToOpenAi(configSanitized.sanitized);
 
 				let openAiMcpTools: OpenAITool[] = [];
 				if (mcpExternal) {
 					try {
 						const mcpToolsRaw = await mcpExternal.listTools();
-						const mcpTools = sanitizeMcpTools(
+						const mcpSanitized = sanitizeMcpTools(
 							mcpToolsRaw as any,
-							new Set(configTools.map(t => t.name))
+							new Set(configSanitized.sanitized.map(t => t.name))
 						);
-						openAiMcpTools = mapMcpToolsToOpenAi(mcpTools as any);
+						mcpSanitized.errors.forEach((e) => console.error(e));
+						openAiMcpTools = mapMcpToolsToOpenAi(mcpSanitized.sanitized as any);
 					} catch {
 						openAiMcpTools = [];
 					}
@@ -92,10 +95,15 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 					// 将来ここでドメイン変換やフィルタリングが可能
 					onEvent(event);
 				},
-				{
-					mcpExternal, // MCP を再注入してツール実行を有効化
-					tools
-				}
+				(() => {
+					const toolExecutor = mcpExternal
+						? { callTool: mcpExternal.callTool.bind(mcpExternal) }
+						: undefined;
+					return {
+						toolExecutor, // ツール実行は抽象I/Fで注入
+						tools
+					};
+				})()
 			);
 			
 			// 4. 更新された履歴を同期（ユーザーメッセージ以降の更新分のみ）
