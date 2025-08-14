@@ -5,6 +5,7 @@ import { LLMExternal, createLLMExternal } from '../../externals/llm/index';
 import { ConversationHistoryRepository, createConversationHistoryRepository } from '../../externals/conversationHistory';
 import { ConfigurationExternal, createConfigurationExternal } from '../../externals/configuration';
 import { MCPExternal } from '../../externals/mcp';
+import { createToolsExternal } from '../../externals/tools';
 import type { ChatFactoryDependencies } from './dependencies';
 import { mapMcpToolsToOpenAi } from '../core/mapMcpToolsToOpenAi';
 import { mapConfigToolsToOpenAi } from '../core/mapConfigToolsToOpenAi';
@@ -28,7 +29,12 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 	const llmExternal = deps.llm ?? createLLMExternal();
 	const conversationHistoryRepository = deps.history ?? createConversationHistoryRepository();
 	const configurationExternal = deps.configuration ?? createConfigurationExternal();
-	const mcpExternal = deps.mcp;
+    const mcpExternal = deps.mcp;
+    const toolsExternal = deps.tools ?? createToolsExternal({
+      llm: llmExternal,
+      mcp: mcpExternal,
+      configuration: configurationExternal
+    });
 
 	return {
 		chat: async (
@@ -96,8 +102,14 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 					onEvent(event);
 				},
 				(() => {
-					const toolExecutor = mcpExternal
-						? { callTool: mcpExternal.callTool.bind(mcpExternal) }
+					const toolExecutor = toolsExternal
+						? {
+							callTool: (
+								name: string,
+								args: Record<string, any>,
+								onEvent?: (event: any) => void
+							) => toolsExternal.callTool(name, args, onEvent)
+						}
 						: undefined;
 					return {
 						toolExecutor, // ツール実行は抽象I/Fで注入

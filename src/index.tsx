@@ -7,6 +7,7 @@ import { createConfigurationExternal } from './externals/configuration';
 import type { McpServerDefinition } from './externals/configuration/types';
 import type { McpServerConfig } from './externals/mcp';
 import { createMCPExternal } from './externals/mcp';
+import { createToolsExternal } from './externals/tools';
 
 // エントリポイントで依存関係を組み立て（rules.md 準拠）
 const bootstrap = async () => {
@@ -44,7 +45,8 @@ const bootstrap = async () => {
     llm: llmExternal,
     history: historyRepository,
     configuration: configurationExternal,
-    mcp: mcpExternal
+    mcp: mcpExternal,
+    tools: createToolsExternal({ llm: llmExternal, mcp: mcpExternal, configuration: configurationExternal })
   });
 
   // 終了時のクリーンアップ
