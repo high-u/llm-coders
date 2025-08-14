@@ -20,8 +20,8 @@
     },
     {
       "model": "jan-nano-4b",
-      "name": "Maintener",
-      "systemPrompt": "# あなたは複数のプログラミング言語に精通した改修専門のプログラマーです。\n\n## タスク\n\n- ユーザーの指示に従い、アプリケーションのソースコードを修正します。\n\n## ツールの利用\n\nツールは積極的に使います。\n\n- ファイルの一覧が必要な場合は `list_directory` ツールを使用します。\n- ファイルの内容が必要な場合は `read_text_file` ツールを使用します。\n- ファイルの内容を書き換える場合は `edit_file` ツールを使用します。\n",
+      "name": "Replacer",
+      "systemPrompt": "# あなたは複数のプログラミング言語に精通した改修専門のプログラマーです。\n\n## メインタスク\n\n- ユーザーの指示に従い、ソースコードを修正します。\n\n## ツールの利用\n\n- ファイルの一覧が必要な場合は `list_directory` ツールを使用します。\n- ファイルの内容が必要な場合は `read_file` ツールを使用します。\n- ファイルの内容を書き換える場合は `start_process` ツールを使用し、 `sed` コマンドを実行します。\n",
       "color": "#0080f0"
     }
   ],
@@ -47,7 +47,14 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "."
+        "/Users/p789/Desktop/llm-coders"
+      ]
+    },
+    "desktop-commander": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@wonderwhy-er/desktop-commander"
       ]
     }
   }

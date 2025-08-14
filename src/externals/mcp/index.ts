@@ -34,6 +34,8 @@ interface Connection {
 
 export const createMCPExternal = (): MCPExternal => {
   const connections: Connection[] = [];
+  // ツール名 -> サーバー名（接続時に確定。実行時は1回だけ送る）
+  const toolMap = new Map<string, string>();
 
   const startOne = async (cfg: McpServerConfig): Promise<void> => {
     const transport = cfg.transport ?? 'stdio';
@@ -62,6 +64,28 @@ export const createMCPExternal = (): MCPExternal => {
         // eslint-disable-next-line no-console
         console.warn(`[mcp] failed to start ${s.name}:`, e);
       })));
+
+      // 接続完了後、提供順（serversの順）でツール→サーバーを確定
+      toolMap.clear();
+      for (const s of servers) {
+        const conn = connections.find(c => c.name === s.name);
+        if (!conn?.client?.listTools) continue;
+        try {
+          const resp = await conn.client.listTools();
+          const tools = Array.isArray(resp?.tools) ? resp.tools : [];
+          for (const t of tools) {
+            const toolName = t?.name;
+            if (!toolName) continue;
+            // 最初に見つかったサーバーを採用（以後は上書きしない）
+            if (!toolMap.has(toolName)) {
+              toolMap.set(toolName, s.name);
+            }
+          }
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn(`[mcp] listTools (build map) failed on ${s.name}:`, e);
+        }
+      }
     },
 
     listTools: async (): Promise<McpTool[]> => {
@@ -88,16 +112,31 @@ export const createMCPExternal = (): MCPExternal => {
     },
 
     callTool: async (toolName: string, args: any): Promise<any> => {
-      for (const { name, client } of connections) {
-        if (!client || !client.callTool) continue;
-        try {
-          const result = await client.callTool({ name: toolName, arguments: args });
-          return result;
-        } catch (e) {
-          console.warn(`[mcp] callTool failed on ${name}:`, e);
-        }
+      const serverName = toolMap.get(toolName);
+      if (!serverName) {
+        return {
+          content: [{ type: 'text', text: `Error: Tool '${toolName}' not found in connected servers` }],
+          isError: true
+        };
       }
-      throw new Error(`Tool ${toolName} not found in any connected server`);
+
+      const conn = connections.find(c => c.name === serverName);
+      if (!conn?.client?.callTool) {
+        return {
+          content: [{ type: 'text', text: `Error: Server '${serverName}' is unavailable for tool '${toolName}'` }],
+          isError: true
+        };
+      }
+
+      try {
+        return await conn.client.callTool({ name: toolName, arguments: args });
+      } catch (e: any) {
+        const msg = e instanceof Error ? e.message : String(e);
+        return {
+          content: [{ type: 'text', text: `Error: ${msg}` }],
+          isError: true
+        };
+      }
     },
 
     stopAll: async (): Promise<void> => {

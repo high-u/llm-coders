@@ -1,20 +1,37 @@
-import type { MCPExternal } from '../mcp';
-import type { ConfigurationExternal } from '../configuration';
-import type { StreamEvent as LlmStreamEvent, ToolResult as LlmToolResult } from '../llm/types';
-import config from 'config';
+// Note: Avoid externals→externals direct imports. Use minimal local types.
+
+// Local event/result types to avoid coupling to LLM external types
+export type ToolEvent = {
+  type: 'chunk' | 'complete' | 'error';
+  data?: string;
+  error?: string;
+};
+
+export type ToolResult = {
+  content?: { text?: string }[];
+  // keep open for forward-compat
+  [key: string]: any;
+};
 
 export interface ToolsExternal {
   callTool: (
     name: string,
     args: Record<string, any>,
-    onEvent?: (event: LlmStreamEvent) => void
-  ) => Promise<LlmToolResult>;
+    onEvent?: (event: ToolEvent) => void
+  ) => Promise<ToolResult>;
 }
 
 export const createToolsExternal = (
   deps: {
-    mcp?: MCPExternal;
-    configuration: ConfigurationExternal;
+    // minimal, structurally compatible shape (no direct import)
+    mcp?: { callTool: (toolName: string, args: Record<string, unknown>) => Promise<any> };
+    configuration: {
+      getTools: () => { name: string; model?: string; systemPrompt?: string }[];
+      // optional: provided by configuration external to resolve model settings
+      getModelConfig?: (key: string) => { endpoint: string; modelId: string } | null;
+    };
+    // tolerate extra fields passed by callers (e.g., llm) without depending on them
+    llm?: unknown;
   }
 ): ToolsExternal => {
   const { mcp, configuration } = deps;
@@ -29,8 +46,7 @@ export const createToolsExternal = (
     const t = tools.find((x: any) => x?.name === toolName);
     if (!t || typeof t.model !== 'string') return null;
 
-    const cfg: any = (config as any).util.toObject();
-    const modelCfg = cfg?.model?.[t.model];
+    const modelCfg = configuration.getModelConfig?.(t.model);
     if (!modelCfg || !modelCfg.endpoint || !modelCfg.modelId) return null;
 
     return {
@@ -52,7 +68,7 @@ export const createToolsExternal = (
   };
 
   return {
-    callTool: async (name, args, onEvent): Promise<LlmToolResult> => {
+    callTool: async (name, args, onEvent): Promise<ToolResult> => {
       // 1) config 定義に存在するなら LLM 経由で実行
       const resolved = resolveToolConfig(name);
       if (resolved) {

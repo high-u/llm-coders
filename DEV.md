@@ -1,5 +1,20 @@
 # DEV
 
+## MCP ツール確認
+
+```bash
+/opt/homebrew/opt/mcp/bin/mcp tools npx -y @modelcontextprotocol/server-filesystem /Users/p789/Desktop/llm-coders ~
+
+/opt/homebrew/opt/mcp/bin/mcp call list_directory --params '{"path":"./"}' npx -y @modelcontextprotocol/server-filesystem ~
+/opt/homebrew/opt/mcp/bin/mcp call read_text_file --params '{"path":"./dist/index.html"}' npx -y @modelcontextprotocol/server-filesystem ~
+```
+
+```bash
+/opt/homebrew/opt/mcp/bin/mcp tools npx -y @wonderwhy-er/desktop-commander
+```
+
+## xx
+
 ⏺ Ink調査結果に基づく改修内容の提示
 
   調査結果のまとめ

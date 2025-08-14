@@ -9,6 +9,7 @@ export interface ConfigurationExternal {
 	getCoders: () => RawCoder[];
   getMcpServers: () => McpServerDefinition[];
   getTools: () => ConfigTool[];
+  getModelConfig: (key: string) => { endpoint: string; modelId: string } | null;
 }
 
 export const createConfigurationExternal = (): ConfigurationExternal => ({
@@ -28,5 +29,14 @@ export const createConfigurationExternal = (): ConfigurationExternal => ({
   getTools: (): ConfigTool[] => {
     const configData = config.util.toObject();
     return parseToolsFromConfig(configData);
+  },
+  getModelConfig: (key: string): { endpoint: string; modelId: string } | null => {
+    const configData = config.util.toObject();
+    const modelCfg = configData?.model?.[key];
+    if (!modelCfg || typeof modelCfg !== 'object') return null;
+    const endpoint = modelCfg?.endpoint;
+    const modelId = modelCfg?.modelId;
+    if (typeof endpoint !== 'string' || typeof modelId !== 'string') return null;
+    return { endpoint, modelId };
   }
 });
