@@ -13,16 +13,17 @@ const insideCwd = (abs: string): boolean => {
   return (abs === path.resolve(cwd)) || norm.startsWith(normCwd);
 };
 
-const notice = (kv: string): ToolResult => ({ content: [{ text: `Notice: ${kv}` }] });
+const errorMsg = (kv: string): ToolResult => ({ content: [{ text: `Error: ${kv}` }] });
+const success = (kv: string): ToolResult => ({ content: [{ text: `Success: ${kv}` }] });
 
 export async function readTextFile(args: { path: string; head?: number; tail?: number }): Promise<ToolResult> {
   const userPath = args?.path ?? '';
   const abs = toAbs(userPath);
   if (!insideCwd(abs)) {
-    return notice(`reason=path_outside_cwd; path=${userPath}`);
+    return errorMsg(`reason=path_outside_cwd; path=${userPath}`);
   }
   if (args.head != null && args.tail != null) {
-    return notice(`reason=head_and_tail_conflict; path=${userPath}`);
+    return errorMsg(`reason=head_and_tail_conflict; path=${userPath}`);
   }
   try {
     const data = await fs.readFile(abs, 'utf8');
@@ -37,7 +38,7 @@ export async function readTextFile(args: { path: string; head?: number; tail?: n
     }
     return { content: [{ text: data }] };
   } catch (e: any) {
-    return notice(`reason=file_read_error; path=${userPath}; message=${JSON.stringify(e?.message ?? String(e))}`);
+    return errorMsg(`reason=file_read_error; path=${userPath}; message=${JSON.stringify(e?.message ?? String(e))}`);
   }
 }
 
@@ -45,18 +46,18 @@ export async function writeFileAll(args: { content: string; path: string }): Pro
   const userPath = args?.path ?? '';
   const abs = toAbs(userPath);
   if (!insideCwd(abs)) {
-    return notice(`reason=path_outside_cwd; path=${userPath}`);
+    return errorMsg(`reason=path_outside_cwd; path=${userPath}`);
   }
   const parent = path.dirname(abs);
   try {
     const st = await fs.stat(parent).catch(() => null);
     if (!st || !st.isDirectory()) {
-      return notice(`reason=parent_directory_missing; path=${userPath}; parent=${toRel(parent)}`);
+      return errorMsg(`reason=parent_directory_missing; path=${userPath}; parent=${toRel(parent)}`);
     }
     await fs.writeFile(abs, args.content ?? '', 'utf8');
-    return { content: [{ text: `OK: status=written; path=${userPath}; bytes=${Buffer.byteLength(args.content ?? '', 'utf8')}` }] };
+    return success(`action=write_file; path=${userPath}; bytes=${Buffer.byteLength(args.content ?? '', 'utf8')}`);
   } catch (e: any) {
-    return notice(`reason=file_write_error; path=${userPath}; message=${JSON.stringify(e?.message ?? String(e))}`);
+    return errorMsg(`reason=file_write_error; path=${userPath}; message=${JSON.stringify(e?.message ?? String(e))}`);
   }
 }
 
@@ -64,13 +65,13 @@ export async function createDirectory(args: { path: string }): Promise<ToolResul
   const userPath = args?.path ?? '';
   const abs = toAbs(userPath);
   if (!insideCwd(abs)) {
-    return notice(`reason=path_outside_cwd; path=${userPath}`);
+    return errorMsg(`reason=path_outside_cwd; path=${userPath}`);
   }
   try {
     await fs.mkdir(abs, { recursive: true });
-    return { content: [{ text: `OK: status=directory_ready; path=${userPath}` }] };
+    return success(`action=create_directory; path=${userPath}`);
   } catch (e: any) {
-    return notice(`reason=mkdir_error; path=${userPath}; message=${JSON.stringify(e?.message ?? String(e))}`);
+    return errorMsg(`reason=mkdir_error; path=${userPath}; message=${JSON.stringify(e?.message ?? String(e))}`);
   }
 }
 
@@ -78,12 +79,12 @@ export async function listDirectory(args: { path: string }): Promise<ToolResult>
   const userPath = args?.path ?? '';
   const abs = toAbs(userPath);
   if (!insideCwd(abs)) {
-    return notice(`reason=path_outside_cwd; path=${userPath}`);
+    return errorMsg(`reason=path_outside_cwd; path=${userPath}`);
   }
   try {
     const st = await fs.stat(abs);
     if (!st.isDirectory()) {
-      return notice(`reason=not_a_directory; path=${userPath}`);
+      return errorMsg(`reason=not_a_directory; path=${userPath}`);
     }
     const entries = await fs.readdir(abs, { withFileTypes: true });
     const items = entries
@@ -92,7 +93,7 @@ export async function listDirectory(args: { path: string }): Promise<ToolResult>
       .map((e) => (e.isDir ? `[DIR] ${e.name}/` : `[FILE] ${e.name}`));
     return { content: [{ text: items.join('\n') }] };
   } catch (e: any) {
-    return notice(`reason=list_error; path=${userPath}; message=${JSON.stringify(e?.message ?? String(e))}`);
+    return errorMsg(`reason=list_error; path=${userPath}; message=${JSON.stringify(e?.message ?? String(e))}`);
   }
 }
 
@@ -101,17 +102,17 @@ export async function moveFile(args: { source: string; destination: string }): P
   const dstUser = args?.destination ?? '';
   const srcAbs = toAbs(srcUser);
   const dstAbs = toAbs(dstUser);
-  if (!insideCwd(srcAbs)) return notice(`reason=path_outside_cwd; path=${srcUser}`);
-  if (!insideCwd(dstAbs)) return notice(`reason=path_outside_cwd; path=${dstUser}`);
+  if (!insideCwd(srcAbs)) return errorMsg(`reason=path_outside_cwd; path=${srcUser}`);
+  if (!insideCwd(dstAbs)) return errorMsg(`reason=path_outside_cwd; path=${dstUser}`);
   try {
     const dstExists = await fs.stat(dstAbs).then(() => true).catch(() => false);
     if (dstExists) {
-      return notice(`reason=destination_exists; destination=${dstUser}`);
+      return errorMsg(`reason=destination_exists; destination=${dstUser}`);
     }
     await fs.rename(srcAbs, dstAbs);
-    return { content: [{ text: `OK: status=moved; source=${srcUser}; destination=${dstUser}` }] };
+    return success(`action=move_file; source=${srcUser}; destination=${dstUser}`);
   } catch (e: any) {
-    return notice(`reason=move_error; source=${srcUser}; destination=${dstUser}; message=${JSON.stringify(e?.message ?? String(e))}`);
+    return errorMsg(`reason=move_error; source=${srcUser}; destination=${dstUser}; message=${JSON.stringify(e?.message ?? String(e))}`);
   }
 }
 
@@ -119,7 +120,7 @@ export async function searchFiles(args: { path: string; pattern: string; exclude
   const userPath = args?.path ?? '';
   const abs = toAbs(userPath);
   if (!insideCwd(abs)) {
-    return notice(`reason=path_outside_cwd; path=${userPath}`);
+    return errorMsg(`reason=path_outside_cwd; path=${userPath}`);
   }
   const pattern = String(args?.pattern ?? '*');
   const excludes = Array.isArray(args?.excludePatterns) ? args.excludePatterns : [];

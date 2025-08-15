@@ -1,9 +1,9 @@
 import type { ToolsExternal, ToolEvent, ToolResult } from './types';
 import { readTextFile, writeFileAll, createDirectory, listDirectory, moveFile, searchFiles } from './file';
-import { editFile } from './text';
+import { editTextFile, editTextFileByRange } from './text';
 
 // Utility for uniform Notice messages
-const notice = (kv: string): ToolResult => ({ content: [{ text: `Notice: ${kv}` }] });
+const errorMsg = (kv: string): ToolResult => ({ content: [{ text: `Error: ${kv}` }] });
 
 // Keep a minimal local formatter for OpenAI-compatible endpoints
 const formatEndpoint = (baseEndpoint: string): string => {
@@ -40,7 +40,8 @@ export const createToolsExternal = (
     move_file: (args) => moveFile(args),
     search_files: (args) => searchFiles(args),
     // text ops
-    edit_file: (args) => editFile(args)
+    edit_text_file: (args) => editTextFile(args),
+    edit_text_file_by_range: (args) => editTextFileByRange(args)
   };
 
   const resolveConfigTool = (toolName: string): {
@@ -62,7 +63,7 @@ export const createToolsExternal = (
       const builtin = builtins[name];
       if (builtin) {
         try { return await builtin(args, onEvent); } catch (e: any) {
-          return notice(`reason=builtin_error; name=${name}; message=${JSON.stringify(e?.message ?? String(e))}`);
+          return errorMsg(`reason=builtin_error; name=${name}; message=${JSON.stringify(e?.message ?? String(e))}`);
         }
       }
 
@@ -71,7 +72,7 @@ export const createToolsExternal = (
       if (cfg) {
         try {
           const userText = typeof args?.text === 'string' ? args.text : undefined;
-          if (!userText) return notice(`reason=missing_argument; name=${name}; key=text`);
+          if (!userText) return errorMsg(`reason=missing_argument; name=${name}; key=text`);
           const url = formatEndpoint(cfg.endpoint);
           const headers = { 'Content-Type': 'application/json' } as const;
           const body = {
@@ -83,11 +84,9 @@ export const createToolsExternal = (
             ]
           };
 
-          // request log to stderr
-          console.error(JSON.stringify({ ts: new Date().toISOString(), source: 'tool', event: 'request', name, url, body }, null, 2));
           const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
           const reader = res.body?.getReader();
-          if (!reader) return notice(`reason=response_reader_failed; name=${name}`);
+          if (!reader) return errorMsg(`reason=response_reader_failed; name=${name}`);
 
           let aggregated = '';
           while (true) {
@@ -108,23 +107,21 @@ export const createToolsExternal = (
               } catch {}
             }
           }
-          console.error(JSON.stringify({ ts: new Date().toISOString(), source: 'tool', event: 'response_complete', name, response: { content: aggregated } }, null, 2));
           return { content: [{ text: aggregated }] };
         } catch (e: any) {
-          return notice(`reason=config_tool_error; name=${name}; message=${JSON.stringify(e?.message ?? String(e))}`);
+          return errorMsg(`reason=config_tool_error; name=${name}; message=${JSON.stringify(e?.message ?? String(e))}`);
         }
       }
 
       // 3) Fall back to MCP if available
       if (mcp) {
         try { return await mcp.callTool(name, args); } catch (e: any) {
-          return notice(`reason=mcp_error; name=${name}; message=${JSON.stringify(e?.message ?? String(e))}`);
+          return errorMsg(`reason=mcp_error; name=${name}; message=${JSON.stringify(e?.message ?? String(e))}`);
         }
       }
 
       // 4) Not found anywhere
-      return notice(`reason=tool_not_found; name=${name}`);
+      return errorMsg(`reason=tool_not_found; name=${name}`);
     }
   };
 };
-
