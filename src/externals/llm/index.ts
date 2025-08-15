@@ -39,7 +39,10 @@ export const createLLMExternal = (): LLMExternal => ({
 			// LLM応答ループ（ツールコールが続く限り繰り返し）
 			while (true) {
 				let assistantResponse = '';
-				let toolCalls: any[] = [];
+				// ツールコールはチャンク分割されるため index / id で集約
+				const accByIndex: Record<number, ToolCall> = {};
+				const accById: Record<string, ToolCall> = {};
+				const orderKeys: (number | string)[] = [];
 
 				const request = {
 					model,
@@ -73,6 +76,8 @@ export const createLLMExternal = (): LLMExternal => ({
 				});
 
 				const reader = response.body?.getReader();
+				console.error("parsedData", JSON.stringify(reader));
+
 				if (!reader) throw new Error('Failed to get response reader');
 
 				// ストリーム処理
@@ -83,16 +88,40 @@ export const createLLMExternal = (): LLMExternal => ({
 					const chunk = new TextDecoder().decode(value);
 					const parsedData = processStreamChunk(chunk);
 
+					
+
 					for (const data of parsedData) {
 						if (data.content) {
 							assistantResponse += data.content;
 							onEvent({ type: 'chunk', data: data.content });
 						}
 						if (data.tool_call) {
-							toolCalls.push(data.tool_call);
+							const incoming = data.tool_call;
+							const idx = data.tool_call_index;
+							if (typeof idx === 'number') {
+								if (!accByIndex[idx]) {
+									const fallbackId = incoming.id || `idx_${idx}`;
+									accByIndex[idx] = { id: fallbackId, type: 'function', function: { name: '', arguments: '' } };
+									orderKeys.push(idx);
+								}
+								if (incoming.function?.name) accByIndex[idx].function.name = incoming.function.name;
+								if (typeof incoming.function?.arguments === 'string') accByIndex[idx].function.arguments += incoming.function.arguments;
+								if (incoming.id) accByIndex[idx].id = incoming.id;
+							} else {
+								const key = incoming.id || `auto_${orderKeys.length}`;
+								if (!accById[key]) {
+									accById[key] = { id: incoming.id || key, type: 'function', function: { name: '', arguments: '' } };
+									orderKeys.push(key);
+								}
+								if (incoming.function?.name) accById[key].function.name = incoming.function.name;
+								if (typeof incoming.function?.arguments === 'string') accById[key].function.arguments += incoming.function.arguments;
+							}
 						}
 					}
 				}
+
+				// 受信完了時点でのtool_calls一覧を構築（観測順）
+				const toolCalls: ToolCall[] = orderKeys.map((k) => (typeof k === 'number' ? accByIndex[k]! : accById[String(k)]!));
 
 				// LLMレスポンス完了ログを出力
 				const responseCompleteLog = {

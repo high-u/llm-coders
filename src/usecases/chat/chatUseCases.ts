@@ -5,13 +5,14 @@ import { LLMExternal, createLLMExternal } from '../../externals/llm/index';
 import { ConversationHistoryRepository, createConversationHistoryRepository } from '../../externals/conversationHistory';
 import { ConfigurationExternal, createConfigurationExternal } from '../../externals/configuration';
 import { MCPExternal } from '../../externals/mcp';
-import { createToolsExternal } from '../../externals/tools';
+import { createToolsExternal } from '../../externals/tools/llm';
 import type { ChatFactoryDependencies } from './dependencies';
 import { mapMcpToolsToOpenAi } from '../core/mapMcpToolsToOpenAi';
 import { mapConfigToolsToOpenAi } from '../core/mapConfigToolsToOpenAi';
 import { sanitizeConfigTools, sanitizeMcpTools } from '../core/validateTools';
 import type { DomainConfigTool } from '../core/validateTools';
 import type { OpenAITool } from '../core/toolTypes';
+import { getBuiltinTools } from '../core/builtinTools';
 
 export interface ChatUseCases {
 	chat: (
@@ -59,6 +60,8 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 			// usecases 側で config ツールと MCP ツールを取得し、OpenAI 互換へ変換して結合
 			let tools: OpenAITool[] | undefined = undefined;
 			try {
+				// 0) 内蔵ツール（常に最優先で含める）
+				const builtinTools = getBuiltinTools();
 				const configToolsRaw = configurationExternal.getTools() as any[];
 				const configToolsDomain: DomainConfigTool[] = (configToolsRaw || []).map((t: any) => ({
 					name: String(t?.name ?? ''),
@@ -86,7 +89,7 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 					}
 				}
 
-				const combined = [...openAiConfigTools, ...openAiMcpTools];
+				const combined = [...builtinTools, ...openAiConfigTools, ...openAiMcpTools];
 				tools = combined.length > 0 ? combined : undefined;
 			} catch {
 				tools = undefined;
