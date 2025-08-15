@@ -47,5 +47,9 @@ export interface ToolResult {
 }
 
 export interface ToolExecutor {
-  callTool: (name: string, args: Record<string, any>) => Promise<ToolResult>;
+  callTool: (
+    name: string,
+    args: Record<string, any>,
+    onEvent?: (event: StreamEvent) => void
+  ) => Promise<ToolResult>;
 }

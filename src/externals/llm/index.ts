@@ -139,7 +139,16 @@ export const createLLMExternal = (): LLMExternal => ({
 							type: 'tool_call_start',
 							tool_call: toolCall
 						});
-						const result = await options.toolExecutor.callTool(toolCall.function.name, toolArgs);
+						const result = await options.toolExecutor.callTool(
+							toolCall.function.name,
+							toolArgs,
+							(event) => {
+								// ツール実行中のストリームは chunk のみ伝播（complete/error は外側で管理）
+								if (event.type === 'chunk' && event.data) {
+									onEvent({ type: 'chunk', data: event.data });
+								}
+							}
+						);
 						
 						if (result.content && Array.isArray(result.content) && result.content[0]?.text) {
 							toolContent = result.content[0].text;
