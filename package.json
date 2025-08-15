@@ -14,7 +14,6 @@
   "description": "",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.2",
-    "@types/picomatch": "^4.0.2",
     "config": "^4.1.0",
     "git-diff": "^2.0.6",
     "ink": "^6.1.0",
@@ -25,6 +24,7 @@
   "devDependencies": {
     "@types/config": "^3.3.5",
     "@types/node": "^24.2.0",
+    "@types/picomatch": "^4.0.2",
     "@types/react": "^19.1.9",
     "tsx": "^4.20.3",
     "typescript": "^5.9.2"
