@@ -5,7 +5,7 @@ import { LLMExternal, createLLMExternal } from '../../externals/llm/index';
 import { ConversationHistoryRepository, createConversationHistoryRepository } from '../../externals/conversationHistory';
 import { ConfigurationExternal, createConfigurationExternal } from '../../externals/configuration';
 import { MCPExternal } from '../../externals/mcp';
-import { createToolsExternal } from '../../externals/tools';
+import { createToolsExternal } from '../../externals/tools/llm';
 import type { ChatFactoryDependencies } from './dependencies';
 import { mapMcpToolsToOpenAi } from '../core/mapMcpToolsToOpenAi';
 import { mapConfigToolsToOpenAi } from '../core/mapConfigToolsToOpenAi';

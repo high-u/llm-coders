@@ -7,7 +7,7 @@ import { createConfigurationExternal } from './externals/configuration';
 import type { McpServerDefinition } from './externals/configuration/types';
 import type { McpServerConfig } from './externals/mcp';
 import { createMCPExternal } from './externals/mcp';
-import { createToolsExternal } from './externals/tools';
+import { createToolsExternal } from './externals/tools/llm';
 
 // エントリポイントで依存関係を組み立て（rules.md 準拠）
 const bootstrap = async () => {
