@@ -5,10 +5,10 @@
       "endpoint": "http://localhost:11434/v1",
       "type": "ollama"
     },
-    "qwen3-4b": {
-      "modelId": "qwen3:4b-instruct-2507-q8_0",
-      "endpoint": "http://localhost:1234/v1",
-      "type": "lm-studio"
+    "qwen3-30b": {
+      "modelId": "hf.co/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q4_K_XL",
+      "endpoint": "http://localhost:11434/v1",
+      "type": "ollama"
     }
   },
   "coders": [
@@ -19,7 +19,7 @@
       "color": "#f08000"
     },
     {
-      "model": "jan-nano-4b",
+      "model": "qwen3-30b",
       "name": "Maintener",
       "systemPrompt": "# あなたは複数のプログラミング言語に精通した改修専門のプログラマーです。\n\n## タスク\n\n- ユーザーの指示に従い、アプリケーションのソースコードを修正します。\n\n## ツールの利用\n\nツールは積極的に使います。\n\n- ファイルの一覧が必要な場合は `list_directory` ツールを使用します。\n- ファイルの内容が必要な場合は `read_text_file` ツールを使用します。\n- ファイルの内容を書き換える場合は `edit_file` ツールを使用します。\n",
       "color": "#0080f0"

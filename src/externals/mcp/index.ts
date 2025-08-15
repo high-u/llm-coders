@@ -15,7 +15,7 @@ export interface McpTool {
   name: string;
   description?: string;
   parameters?: Record<string, any>;
-  serverName?: string;
+  serverName?: string; // 配列スナップショットで必ず付与
 }
 
 export interface MCPExternal {
@@ -34,8 +34,8 @@ interface Connection {
 
 export const createMCPExternal = (): MCPExternal => {
   const connections: Connection[] = [];
-  // ツール名 -> サーバー名（接続時に確定。実行時は1回だけ送る）
-  const toolMap = new Map<string, string>();
+  // 起動時に一度だけ作るツールスナップショット（重複許容・順序はサーバー定義順）
+  const toolCatalog: McpTool[] = [];
 
   const startOne = async (cfg: McpServerConfig): Promise<void> => {
     const transport = cfg.transport ?? 'stdio';
@@ -65,8 +65,8 @@ export const createMCPExternal = (): MCPExternal => {
         console.warn(`[mcp] failed to start ${s.name}:`, e);
       })));
 
-      // 接続完了後、提供順（serversの順）でツール→サーバーを確定
-      toolMap.clear();
+      // 接続完了後、提供順（servers の順）でツールスナップショットを構築（重複は許容）
+      toolCatalog.length = 0;
       for (const s of servers) {
         const conn = connections.find(c => c.name === s.name);
         if (!conn?.client?.listTools) continue;
@@ -76,54 +76,39 @@ export const createMCPExternal = (): MCPExternal => {
           for (const t of tools) {
             const toolName = t?.name;
             if (!toolName) continue;
-            // 最初に見つかったサーバーを採用（以後は上書きしない）
-            if (!toolMap.has(toolName)) {
-              toolMap.set(toolName, s.name);
-            }
+            toolCatalog.push({
+              name: toolName,
+              description: t?.description,
+              parameters: t?.inputSchema ?? t?.parameters ?? undefined,
+              serverName: s.name
+            });
           }
         } catch (e) {
           // eslint-disable-next-line no-console
-          console.warn(`[mcp] listTools (build map) failed on ${s.name}:`, e);
+          console.warn(`[mcp] listTools (snapshot) failed on ${s.name}:`, e);
         }
       }
     },
 
     listTools: async (): Promise<McpTool[]> => {
-      const results: McpTool[] = [];
-      for (const { name, client } of connections) {
-        if (!client || !client.listTools) continue;
-        try {
-          const resp = await client.listTools();
-          const tools = Array.isArray(resp?.tools) ? resp.tools : [];
-          for (const t of tools) {
-            results.push({
-              name: t?.name,
-              description: t?.description,
-              parameters: t?.inputSchema ?? t?.parameters ?? undefined,
-              serverName: name
-            });
-          }
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.warn(`[mcp] listTools failed on ${name}:`, e);
-        }
-      }
-      return results;
+      // 起動時に確定したスナップショットを返す（再取得しない）
+      return [...toolCatalog];
     },
 
     callTool: async (toolName: string, args: any): Promise<any> => {
-      const serverName = toolMap.get(toolName);
-      if (!serverName) {
+      // 同名ツールは許容。実行ポリシー: 先勝ち（起動時スナップショットの順序）
+      const entry = toolCatalog.find(t => t.name === toolName);
+      if (!entry?.serverName) {
         return {
           content: [{ type: 'text', text: `Error: Tool '${toolName}' not found in connected servers` }],
           isError: true
         };
       }
 
-      const conn = connections.find(c => c.name === serverName);
+      const conn = connections.find(c => c.name === entry.serverName);
       if (!conn?.client?.callTool) {
         return {
-          content: [{ type: 'text', text: `Error: Server '${serverName}' is unavailable for tool '${toolName}'` }],
+          content: [{ type: 'text', text: `Error: Server '${entry.serverName}' is unavailable for tool '${toolName}'` }],
           isError: true
         };
       }
@@ -144,6 +129,7 @@ export const createMCPExternal = (): MCPExternal => {
         try { await client?.close?.(); } catch {}
       }
       connections.length = 0;
+      toolCatalog.length = 0;
     }
   };
 };
