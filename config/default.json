@@ -39,7 +39,7 @@
   },
   "mcpServer": {
     "mcp-server-fetch": {
-      "command": "/Users/p789/.local/bin/uvx",
+      "command": "uvx",
       "args": ["mcp-server-fetch"]
     },
     "filesystem": {
