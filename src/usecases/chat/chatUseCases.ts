@@ -1,5 +1,6 @@
-import { Coder } from '../core/agentConfig';
-import { StreamEvent, ChatMessage } from '../core/messageFormat';
+import type { ChatUseCases } from './types';
+import type { Coder } from '../core/agentConfig';
+import type { StreamEvent, ChatMessage } from '../core/messageFormat';
 import { formatUserMessage, formatSystemMessage } from '../core/messageFormat';
 import { LLMExternal, createLLMExternal } from '../../externals/llm/index';
 import { ConversationHistoryRepository, createConversationHistoryRepository } from '../../externals/conversationHistory';
@@ -13,18 +14,6 @@ import { sanitizeConfigTools, sanitizeMcpTools } from '../core/validateTools';
 import type { DomainConfigTool } from '../core/validateTools';
 import type { OpenAITool } from '../core/toolTypes';
 import { getBuiltinTools } from '../core/builtinTools';
-
-export interface ChatUseCases {
-	chat: (
-		coder: Coder,
-		userPrompt: string,
-		onEvent: (event: StreamEvent) => void,
-		confirmToolExecution?: (input: { name: string; args: Record<string, any> }) => Promise<boolean>
-	) => Promise<void>;
-	clearHistory: () => void;
-	getHistory: () => ChatMessage[];
-	getCoders: () => Coder[];
-}
 
 export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseCases => {
 	// usecases層で依存関係の組み立てを実行（エントリからの DI を優先）
