@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { Coder } from '../../../usecases/core/agentConfig';
+import type { Coder } from '../../../usecases/chat/types';
 
 export interface AutoCompleteItem {
   id: string;
