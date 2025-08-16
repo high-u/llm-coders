@@ -15,10 +15,24 @@ export interface ToolCall {
 }
 
 export interface StreamEvent {
-	type: 'chunk' | 'complete' | 'error' | 'tool_call_start' | 'tool_call_result' | 'tool_call_error';
+	type:
+	  | 'chunk'
+	  | 'complete'
+	  | 'error'
+	  | 'tool_call_start'
+	  | 'tool_call_result'
+	  | 'tool_call_error'
+	  | 'tool_approval_request'
+	  | 'tool_approval_result';
 	data?: string;
 	error?: string;
 	tool_call?: ToolCall;
+	// Approval-specific payloads
+	approval?: {
+		name: string;
+		args: Record<string, any>;
+		approved?: boolean;
+	};
 }
 
 export const createChatMessage = (role: 'user' | 'assistant' | 'system', content: string): ChatMessage => ({

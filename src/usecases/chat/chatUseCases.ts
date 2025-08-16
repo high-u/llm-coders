@@ -18,7 +18,8 @@ export interface ChatUseCases {
 	chat: (
 		coder: Coder,
 		userPrompt: string,
-		onEvent: (event: StreamEvent) => void
+		onEvent: (event: StreamEvent) => void,
+		confirmToolExecution?: (input: { name: string; args: Record<string, any> }) => Promise<boolean>
 	) => Promise<void>;
 	clearHistory: () => void;
 	getHistory: () => ChatMessage[];
@@ -41,7 +42,8 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 		chat: async (
 			coder: Coder,
 			userPrompt: string,
-			onEvent: (event: StreamEvent) => void
+			onEvent: (event: StreamEvent) => void,
+			confirmToolExecution?: (input: { name: string; args: Record<string, any> }) => Promise<boolean>
 		): Promise<void> => {
 			// 1. システムプロンプトを履歴の最初に追加（初回のみ）
 			const currentHistory = conversationHistoryRepository.getHistory();
@@ -116,7 +118,8 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 						: undefined;
 					return {
 						toolExecutor, // ツール実行は抽象I/Fで注入
-						tools
+						tools,
+						confirmToolExecution: confirmToolExecution
 					};
 				})()
 			);

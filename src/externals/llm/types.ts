@@ -23,10 +23,17 @@ export interface StreamEvent {
     | 'error'
     | 'tool_call_start'
     | 'tool_call_result'
-    | 'tool_call_error';
+    | 'tool_call_error'
+    | 'tool_approval_request'
+    | 'tool_approval_result';
   data?: string;
   error?: string;
   tool_call?: ToolCall;
+  approval?: {
+    name: string;
+    args: Record<string, any>;
+    approved?: boolean;
+  };
 }
 
 export interface OpenAITool {
@@ -52,4 +59,8 @@ export interface ToolExecutor {
     args: Record<string, any>,
     onEvent?: (event: StreamEvent) => void
   ) => Promise<ToolResult>;
+}
+
+export interface ConfirmToolExecutionFn {
+  (input: { name: string; args: Record<string, any>; tool_call?: ToolCall }): Promise<boolean>;
 }

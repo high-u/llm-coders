@@ -1,4 +1,4 @@
-import type { ChatMessage, StreamEvent, OpenAITool, ToolCall, ToolExecutor } from './types';
+import type { ChatMessage, StreamEvent, OpenAITool, ToolCall, ToolExecutor, ConfirmToolExecutionFn } from './types';
 import { formatEndpoint } from './functions/formatRequest';
 import { processStreamChunk } from './functions/parseStream';
 // No cross-layer helpers; construct objects inline per layer-local types
@@ -13,6 +13,7 @@ export interface LLMExternal {
 			toolExecutor?: ToolExecutor;
 			toolChoice?: any;
 			tools?: OpenAITool[];
+			confirmToolExecution?: ConfirmToolExecutionFn;
 		}
 	) => Promise<ChatMessage[]>; // 更新された履歴を返す
 }
@@ -27,6 +28,7 @@ export const createLLMExternal = (): LLMExternal => ({
 			toolExecutor?: ToolExecutor;
 			toolChoice?: any;
 			tools?: OpenAITool[];
+			confirmToolExecution?: ConfirmToolExecutionFn;
 		}
 	): Promise<ChatMessage[]> => {
 		try {
@@ -157,12 +159,35 @@ export const createLLMExternal = (): LLMExternal => ({
 					break;
 				}
 
-				// ツール実行
+				// ツール実行（全ツールで事前承諾を取得）
 				for (const toolCall of toolCalls) {
 					let toolContent: string;
 					
 					try {
 						const toolArgs = JSON.parse(toolCall.function.arguments || '{}');
+						// 事前承諾要求イベント
+						onEvent({
+							type: 'tool_approval_request',
+							tool_call: toolCall,
+							approval: { name: toolCall.function.name, args: toolArgs }
+						});
+						const approved = await (options?.confirmToolExecution
+							? options.confirmToolExecution({ name: toolCall.function.name, args: toolArgs, tool_call: toolCall })
+							: Promise.resolve(false));
+						onEvent({
+							type: 'tool_approval_result',
+							tool_call: toolCall,
+							approval: { name: toolCall.function.name, args: toolArgs, approved }
+						});
+						if (!approved) {
+							// 否認時はツール実行をスキップし、エラー扱いで通知
+							onEvent({
+								type: 'tool_call_error',
+								tool_call: toolCall,
+								error: 'user_denied'
+							});
+							continue;
+						}
 						// ツール開始イベント
 						onEvent({
 							type: 'tool_call_start',

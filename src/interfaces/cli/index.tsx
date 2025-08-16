@@ -33,6 +33,10 @@ export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const normalizerRef = useRef(createChunkNormalizer());
+
+  // 承諾ダイアログ状態
+  const [pendingApproval, setPendingApproval] = useState<null | { name: string; args: Record<string, any> }>(null);
+  const approvalResolverRef = useRef<null | ((ok: boolean) => void)>(null);
 	
 	const coders: Coder[] = chatUseCases.getCoders();
 	const [selectedCoderConfig, setSelectedCoderConfig] = useState<Coder>(coders[0]);
@@ -81,6 +85,22 @@ export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 
 	// 共通キー入力処理
 	useInput((inputChar, key) => {
+		// 承諾ダイアログ中は y/n のみ受け付け
+		if (pendingApproval) {
+			if (inputChar?.toLowerCase?.() === 'y') {
+				approvalResolverRef.current?.(true);
+				approvalResolverRef.current = null;
+				setPendingApproval(null);
+				return;
+			}
+			if (inputChar?.toLowerCase?.() === 'n' || key.escape) {
+				approvalResolverRef.current?.(false);
+				approvalResolverRef.current = null;
+				setPendingApproval(null);
+				return;
+			}
+			return; // 他入力は無視
+		}
 		let chunk = inputChar;
 		if (chunk && !key.ctrl) {
 			chunk = normalizerRef.current.normalize(chunk);
@@ -195,6 +215,35 @@ export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 							));
 						}
 						break;
+
+					case 'tool_approval_request':
+						{
+							const name = event.approval?.name || event.tool_call?.function?.name || 'unknown';
+							const args = event.approval?.args ?? {};
+							const argsText = JSON.stringify(args).slice(0, 300);
+							const line = `\n[Tool] Confirm execution? ${name} ${argsText}\nPress y to allow, n to deny.`;
+							accumulatedOutput += `\n${line}\n`;
+							setHistory(prev => prev.map((entry, index) => 
+								index === commandIndex 
+									? { ...entry, output: accumulatedOutput }
+									: entry
+							));
+							setPendingApproval({ name, args });
+						}
+						break;
+
+					case 'tool_approval_result':
+						{
+							const approved = !!event.approval?.approved;
+							const line = approved ? `\n[Tool] Approval: accepted.` : `\n[Tool] Approval: denied.`;
+							accumulatedOutput += `${line}\n`;
+							setHistory(prev => prev.map((entry, index) => 
+								index === commandIndex 
+									? { ...entry, output: accumulatedOutput }
+									: entry
+							));
+						}
+						break;
 					
 					case 'complete':
 						setHistory(prev => prev.map((entry, index) => 
@@ -215,6 +264,12 @@ export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 						break;
 				}
 			}
+		,
+		// confirmToolExecution: UI での y/n 入力を Promise で返す
+		({ name, args }) => new Promise<boolean>((resolve) => {
+			approvalResolverRef.current = resolve;
+			setPendingApproval({ name, args });
+		})
 		);
 	};
 
@@ -232,7 +287,14 @@ export const CommandInterface = ({ chatUseCases }: CommandInterfaceProps) => {
 				</Box>
 			))}
 			
-			{isAutoCompleting ? (
+			{pendingApproval ? (
+				<Box flexDirection="column" borderStyle="single" borderColor="yellow" paddingX={1}>
+					<Text color="yellow">Approve tool execution?</Text>
+					<Text color="white">{`name=${pendingApproval.name}`}</Text>
+					<Text color="gray">{`args=${JSON.stringify(pendingApproval.args).slice(0, 300)}`}</Text>
+					<Text color="gray">Press y to allow, n to deny</Text>
+				</Box>
+			) : isAutoCompleting ? (
 				<AutoCompleteInput
 					items={filteredItems}
 					triggerChar={input[0]} // '@' or '/'
