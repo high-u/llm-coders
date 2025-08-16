@@ -62,6 +62,12 @@ export const CommandInput = ({
   };
 
   useInput((inputChar, key) => {
+    // Ctrl+C should always terminate, even during approval
+    if (key.ctrl && inputChar === 'c') {
+      process.exit(0);
+      return;
+    }
+
     // approval dialog: only y/n/esc accepted
     if (pendingApproval) {
       if (inputChar?.toLowerCase?.() === 'y') {
@@ -82,11 +88,6 @@ export const CommandInput = ({
     let chunk = inputChar;
     if (chunk && !key.ctrl) {
       chunk = normalizerRef.current.normalize(chunk);
-    }
-
-    if (key.ctrl && inputChar === 'c') {
-      process.exit(0);
-      return;
     }
 
     if (isAutoCompleting) {
@@ -227,4 +228,3 @@ export const CommandInput = ({
     </Box>
   );
 };
-
