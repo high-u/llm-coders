@@ -68,36 +68,6 @@ export const getBuiltinTools = (): OpenAITool[] => {
     {
       type: 'function',
       function: {
-        name: 'edit_text_file_by_range',
-        description: 'Edit a text file by line ranges on a snapshot. Each edit defines startLine (1-based), lineCount (>=0) and newText. lineCount>0 replaces that many lines; lineCount=0 inserts newText before startLine. Multiple edits are applied together; overlapping ranges are an error.',
-        parameters: {
-          type: 'object',
-          properties: {
-            path: { type: 'string', description: 'CWD-relative path of the file to edit.' },
-            edits: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  startLine: { type: 'integer', description: '1-based line number where the change starts. totalLines+1 with lineCount=0 appends at EOF.' },
-                  lineCount: { type: 'integer', description: 'Number of lines to replace (>=0). 0 means insert.' },
-                  newText: { type: 'string', description: 'Text to insert or to replace with. EOLs will be normalized to the file\'s style.' }
-                },
-                required: ['startLine', 'lineCount', 'newText'],
-                additionalProperties: false
-              },
-              minItems: 1
-            },
-            dryRun: { type: 'boolean', description: 'If true, do not write changes; only report status.' }
-          },
-          required: ['path', 'edits'],
-          additionalProperties: false
-        }
-      }
-    },
-    {
-      type: 'function',
-      function: {
         name: 'create_directory',
         description: 'Create a directory (recursive). Succeeds if it already exists. Properties: path=CWD-relative directory path to create.',
         parameters: {

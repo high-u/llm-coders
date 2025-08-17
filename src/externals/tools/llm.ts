@@ -1,6 +1,6 @@
 import type { ToolsExternal, ToolEvent, ToolResult } from './types';
 import { readTextFile, writeFileAll, createDirectory, listDirectory, moveFile, searchFiles } from './file';
-import { editTextFile, editTextFileByRange } from './text';
+import { editTextFile } from './text';
 
 // Utility for uniform Notice messages
 const errorMsg = (kv: string): ToolResult => ({ content: [{ text: `Error: ${kv}` }] });
@@ -40,8 +40,7 @@ export const createToolsExternal = (
     move_file: (args) => moveFile(args),
     search_files: (args) => searchFiles(args),
     // text ops
-    edit_text_file: (args) => editTextFile(args),
-    edit_text_file_by_range: (args) => editTextFileByRange(args)
+    edit_text_file: (args) => editTextFile(args)
   };
 
   const resolveConfigTool = (toolName: string): {
