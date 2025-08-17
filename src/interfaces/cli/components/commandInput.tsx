@@ -26,6 +26,7 @@ export const CommandInput = ({
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [cursorPosition, setCursorPosition] = useState(0);
   const normalizerRef = useRef(createChunkNormalizer());
 
   // Approval dialog state
@@ -45,12 +46,14 @@ export const CommandInput = ({
   const handleAutoCompleteStart = (triggerChar: string) => setInput(triggerChar);
   const handleAutoCompleteCancel = () => {
     setInput('');
+    setCursorPosition(0);
     setSelectedIndex(0);
   };
   const handleCoderSelect = (coder: Coder) => {
     chatUseCases.clearHistory();
     onSelectCoder(coder);
     setInput('');
+    setCursorPosition(0);
     setSelectedIndex(0);
   };
 
@@ -58,6 +61,7 @@ export const CommandInput = ({
     if (text.trim() && !isProcessing) {
       callChat(text);
       setInput('');
+      setCursorPosition(0);
     }
   };
 
@@ -116,16 +120,33 @@ export const CommandInput = ({
     }
 
     // normal input mode
-    if (key.ctrl && inputChar === 'j') {
-      setInput(prev => prev + '\n');
+    if (key.leftArrow) {
+      setCursorPosition(prev => Math.max(0, prev - 1));
+    } else if (key.rightArrow) {
+      setCursorPosition(prev => Math.min(input.length, prev + 1));
+    } else if (key.ctrl && inputChar === 'j') {
+      const before = input.slice(0, cursorPosition);
+      const after = input.slice(cursorPosition);
+      setInput(before + '\n' + after);
+      setCursorPosition(prev => prev + 1);
     } else if (key.return) {
       if (input.trim() && !isProcessing) handleNormalSubmit(input);
     } else if (key.backspace || key.delete) {
-      setInput(prev => prev.slice(0, -1));
+      if (cursorPosition > 0) {
+        const before = input.slice(0, cursorPosition - 1);
+        const after = input.slice(cursorPosition);
+        setInput(before + after);
+        setCursorPosition(prev => prev - 1);
+      }
     } else if ((inputChar === '@' || inputChar === '/') && input === '') {
       handleAutoCompleteStart(inputChar);
     } else if (inputChar && !key.ctrl && !isProcessing) {
-      if (chunk) setInput(prev => prev + chunk);
+      if (chunk) {
+        const before = input.slice(0, cursorPosition);
+        const after = input.slice(cursorPosition);
+        setInput(before + chunk + after);
+        setCursorPosition(prev => prev + 1);
+      }
     }
   });
 
@@ -223,6 +244,7 @@ export const CommandInput = ({
           input={input}
           agentConfig={selectedCoder}
           isProcessing={isProcessing}
+          cursorPosition={cursorPosition}
         />
       )}
     </Box>

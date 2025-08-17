@@ -6,12 +6,14 @@ export interface NormalInputProps {
   input: string;
   agentConfig: Coder;
   isProcessing: boolean;
+  cursorPosition: number;
 }
 
 export const NormalInput = ({
   input,
   agentConfig,
-  isProcessing
+  isProcessing,
+  cursorPosition
 }: NormalInputProps) => {
 
   // 入力表示
@@ -27,15 +29,39 @@ export const NormalInput = ({
   // 入力文字列を行に分割
   const lines = input.split('\n');
   
+  // カーソル位置を行・列に変換
+  const getCursorLineAndColumn = (input: string, cursorPos: number) => {
+    const beforeCursor = input.slice(0, cursorPos);
+    const lines = beforeCursor.split('\n');
+    return {
+      line: lines.length - 1,
+      column: lines[lines.length - 1].length
+    };
+  };
+  
+  const { line: cursorLine, column: cursorColumn } = getCursorLineAndColumn(input, cursorPosition);
+  
   return (
     <Box flexDirection="column">
       {lines.map((line, lineIndex) => (
         <Text key={lineIndex} color={agentConfig.color}>
           {lineIndex === 0 && `${agentConfig.name} > `}
-          {Array.from(line).map((char, charIndex) => (
-            <Text key={`${lineIndex}-${charIndex}`}>{char}</Text>
-          ))}
-          {lineIndex === lines.length - 1 && <Text>_</Text>}
+          {Array.from(line).map((char, charIndex) => {
+            const isAtCursor = lineIndex === cursorLine && charIndex === cursorColumn;
+            return (
+              <Text 
+                key={`${lineIndex}-${charIndex}`}
+                backgroundColor={isAtCursor ? 'white' : undefined}
+                color={isAtCursor ? 'black' : undefined}
+              >
+                {char}
+              </Text>
+            );
+          })}
+          {/* 行末カーソル処理 */}
+          {lineIndex === cursorLine && cursorColumn === line.length && (
+            <Text backgroundColor="white" color="black"> </Text>
+          )}
         </Text>
       ))}
     </Box>
