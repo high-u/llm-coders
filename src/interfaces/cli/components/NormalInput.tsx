@@ -51,14 +51,14 @@ export const NormalInput = ({
         const isCursorOnThisLine = lineIndex === cursorLine;
         const atLineEnd = isCursorOnThisLine && cursorColumn === graphemes.length;
         const isEmpty = graphemes.length === 0;
-        const space = ' ';
+        const bom = '\uFEFF';
         
         return (
           <Text key={lineIndex} color={agentConfig.color}>
             {lineIndex === 0 && `${agentConfig.name} > `}
             {isEmpty ? (
               // 空行の場合は半角スペースを挿入
-              space
+              bom
             ) : (
               graphemes.map((g, charIndex) => {
                 const isAtCursor = isCursorOnThisLine && charIndex === cursorColumn;
