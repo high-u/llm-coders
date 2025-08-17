@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { ChatUseCases, Coder } from '../../../usecases/chat/types';
 import { AutoCompleteInput } from './SelectItem';
@@ -27,7 +27,13 @@ export const CommandInput = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [cursorPosition, setCursorPosition] = useState(0);
+  const cursorPositionRef = useRef(0);
   const normalizerRef = useRef(createChunkNormalizer());
+
+  // cursorPositionの変更をrefに自動同期
+  useEffect(() => {
+    cursorPositionRef.current = cursorPosition;
+  }, [cursorPosition]);
 
   // Approval dialog state
   const [pendingApproval, setPendingApproval] = useState<null | { name: string; args: Record<string, any> }>(null);
@@ -142,10 +148,16 @@ export const CommandInput = ({
       handleAutoCompleteStart(inputChar);
     } else if (inputChar && !key.ctrl && !isProcessing) {
       if (chunk) {
-        const before = input.slice(0, cursorPosition);
-        const after = input.slice(cursorPosition);
-        setInput(before + chunk + after);
-        setCursorPosition(prev => prev + 1);
+        setInput(prevInput => {
+          const currentPos = cursorPositionRef.current;
+          const before = prevInput.slice(0, currentPos);
+          const after = prevInput.slice(currentPos);
+          
+          // refを即座に更新
+          cursorPositionRef.current = currentPos + Array.from(chunk).length;
+          return before + chunk + after;
+        });
+        setCursorPosition(prev => prev + Array.from(chunk).length);
       }
     }
   });
