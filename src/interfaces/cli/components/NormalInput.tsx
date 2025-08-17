@@ -1,17 +1,20 @@
 import React from 'react';
-import { Text } from 'ink';
+import { Text, Box, Newline } from 'ink';
 import type { Coder } from '../../../usecases/chat/types';
+import { splitGraphemes, graphemeCount, sliceByGrapheme } from './utilities/graphemes';
 
 export interface NormalInputProps {
   input: string;
   agentConfig: Coder;
   isProcessing: boolean;
+  cursorPosition: number;
 }
 
 export const NormalInput = ({
   input,
   agentConfig,
-  isProcessing
+  isProcessing,
+  cursorPosition
 }: NormalInputProps) => {
 
   // 入力表示
@@ -24,9 +27,64 @@ export const NormalInput = ({
   // const newInputText = input.replace(/(\r\n)|(\r)/, "\n");
   // onInputChange(newInputText);
 
+  // 入力文字列を行に分割
+  const lines = input.split('\n');
+
+  // カーソル位置（書記素インデックス）を行・列に変換
+  const getCursorLineAndColumn = (text: string, graphemePos: number) => {
+    const before = sliceByGrapheme(text, 0, graphemePos);
+    const linesBefore = before.split('\n');
+    const lineIndex = linesBefore.length - 1;
+    const columnGraphemes = linesBefore[linesBefore.length - 1] ?? '';
+    return {
+      line: lineIndex,
+      column: graphemeCount(columnGraphemes)
+    };
+  };
+
+  const { line: cursorLine, column: cursorColumn } = getCursorLineAndColumn(input, cursorPosition);
+  
   return (
-    <Text color={agentConfig.color}>
-      {`${agentConfig.name} > ${input}_`}
-    </Text>
+    <Box flexDirection="column">
+      {lines.map((line, lineIndex) => {
+        const graphemes = splitGraphemes(line);
+        const isCursorOnThisLine = lineIndex === cursorLine;
+        const atLineEnd = isCursorOnThisLine && cursorColumn === graphemes.length;
+        const isEmpty = graphemes.length === 0;
+        const bom = '\uFEFF';
+        
+        return (
+          <Text key={lineIndex} color={agentConfig.color}>
+            {lineIndex === 0 && `${agentConfig.name} > `}
+            {isEmpty ? (
+              // 空行の場合は半角スペースを挿入
+              bom
+            ) : (
+              graphemes.map((g, charIndex) => {
+                const isAtCursor = isCursorOnThisLine && charIndex === cursorColumn;
+                
+                // \nまたは\r文字の場合はNewlineコンポーネントを返す
+                if (g === '\n' || g === '\r') {
+                  return <Newline key={`${lineIndex}-${charIndex}`} />;
+                }
+                
+                return (
+                  <Text
+                    key={`${lineIndex}-${charIndex}`}
+                    backgroundColor={isAtCursor ? 'white' : undefined}
+                    color={isAtCursor ? 'black' : undefined}
+                  >
+                    {g}
+                  </Text>
+                );
+              })
+            )}
+            {atLineEnd && (
+              <Text backgroundColor="white" color="black"> </Text>
+            )}
+          </Text>
+        );
+      })}
+    </Box>
   );
 };
