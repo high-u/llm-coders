@@ -5,7 +5,7 @@ import { AutoCompleteInput } from './SelectItem';
 import { NormalInput } from './NormalInput';
 import { createChunkNormalizer } from './utilities/inputNormalization';
 import type { CommandEntry } from '../types';
-import { applyBackspace, applyInsert, applyNewline, moveLeft, moveRight, moveUp, moveDown } from './utilities/cursorEditing';
+import { applyBackspace, applyDelete, applyInsert, applyNewline, moveLeft, moveRight, moveUp, moveDown } from './utilities/cursorEditing';
 
 export interface CommandInputProps {
   chatUseCases: ChatUseCases;
@@ -29,6 +29,7 @@ export const CommandInput = ({
   type Action =
     | { type: 'insert'; chunk: string }
     | { type: 'backspace' }
+    | { type: 'delete' }
     | { type: 'newline' }
     | { type: 'moveLeft' }
     | { type: 'moveRight' }
@@ -44,6 +45,10 @@ export const CommandInput = ({
       }
       case 'backspace': {
         const { text, pos } = applyBackspace(state.text, state.pos);
+        return { text, pos };
+      }
+      case 'delete': {
+        const { text, pos } = applyDelete(state.text, state.pos);
         return { text, pos };
       }
       case 'newline': {
@@ -194,6 +199,8 @@ export const CommandInput = ({
       if (state.text.trim() && !isProcessing) handleNormalSubmit(state.text);
     } else if (key.backspace || key.delete) {
       dispatch({ type: 'backspace' });
+    } else if (key.ctrl && inputChar === 'd') {
+      dispatch({ type: 'delete' });
     } else if ((inputChar === '@' || inputChar === '/') && state.text === '') {
       handleAutoCompleteStart(inputChar);
     } else if (inputChar && !key.ctrl && !isProcessing) {

@@ -21,6 +21,13 @@ export const applyBackspace = (text: string, pos: number): EditResult => {
   return { text: head + tail, pos: pos - 1 };
 };
 
+export const applyDelete = (text: string, pos: number): EditResult => {
+  if (pos >= graphemeCount(text)) return { text, pos };
+  const head = sliceByGrapheme(text, 0, pos);
+  const tail = sliceByGrapheme(text, pos + 1);
+  return { text: head + tail, pos };
+};
+
 export const applyNewline = (text: string, pos: number): EditResult => {
   return applyInsert(text, pos, '\n');
 };
