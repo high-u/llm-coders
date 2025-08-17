@@ -5,7 +5,7 @@ import { AutoCompleteInput } from './SelectItem';
 import { NormalInput } from './NormalInput';
 import { createChunkNormalizer } from './utilities/inputNormalization';
 import type { CommandEntry } from '../types';
-import { applyBackspace, applyInsert, applyNewline, moveLeft, moveRight } from './utilities/cursorEditing';
+import { applyBackspace, applyInsert, applyNewline, moveLeft, moveRight, moveUp, moveDown } from './utilities/cursorEditing';
 
 export interface CommandInputProps {
   chatUseCases: ChatUseCases;
@@ -32,6 +32,8 @@ export const CommandInput = ({
     | { type: 'newline' }
     | { type: 'moveLeft' }
     | { type: 'moveRight' }
+    | { type: 'moveUp' }
+    | { type: 'moveDown' }
     | { type: 'reset' };
 
   const reducer = (state: EditState, action: Action): EditState => {
@@ -54,6 +56,14 @@ export const CommandInput = ({
       }
       case 'moveRight': {
         const { pos } = moveRight(state.text, state.pos);
+        return { ...state, pos };
+      }
+      case 'moveUp': {
+        const { pos } = moveUp(state.text, state.pos);
+        return { ...state, pos };
+      }
+      case 'moveDown': {
+        const { pos } = moveDown(state.text, state.pos);
         return { ...state, pos };
       }
       case 'reset':
@@ -174,6 +184,10 @@ export const CommandInput = ({
       dispatch({ type: 'moveLeft' });
     } else if (key.rightArrow) {
       dispatch({ type: 'moveRight' });
+    } else if (key.upArrow) {
+      dispatch({ type: 'moveUp' });
+    } else if (key.downArrow) {
+      dispatch({ type: 'moveDown' });
     } else if (key.ctrl && inputChar === 'j') {
       dispatch({ type: 'newline' });
     } else if (key.return) {
