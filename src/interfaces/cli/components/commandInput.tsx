@@ -134,6 +134,10 @@ export const CommandInput = ({
     let chunk = inputChar;
     if (chunk && !key.ctrl) {
       chunk = normalizerRef.current.normalize(chunk);
+      // 貼り付けの場合（複数文字）はnormalizerの状態をリセット
+      if (chunk.length > 1) {
+        normalizerRef.current.reset();
+      }
     }
 
     if (isAutoCompleting) {
