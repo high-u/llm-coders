@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'ink';
+import { Text, Box } from 'ink';
 import type { Coder } from '../../../usecases/chat/types';
 
 export interface NormalInputProps {
@@ -24,9 +24,20 @@ export const NormalInput = ({
   // const newInputText = input.replace(/(\r\n)|(\r)/, "\n");
   // onInputChange(newInputText);
 
+  // 入力文字列を行に分割
+  const lines = input.split('\n');
+  
   return (
-    <Text color={agentConfig.color}>
-      {`${agentConfig.name} > ${input}_`}
-    </Text>
+    <Box flexDirection="column">
+      {lines.map((line, lineIndex) => (
+        <Text key={lineIndex} color={agentConfig.color}>
+          {lineIndex === 0 && `${agentConfig.name} > `}
+          {Array.from(line).map((char, charIndex) => (
+            <Text key={`${lineIndex}-${charIndex}`}>{char}</Text>
+          ))}
+          {lineIndex === lines.length - 1 && <Text>_</Text>}
+        </Text>
+      ))}
+    </Box>
   );
 };
