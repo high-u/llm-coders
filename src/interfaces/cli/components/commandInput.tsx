@@ -133,10 +133,12 @@ export const CommandInput = ({
 
     let chunk = inputChar;
     if (chunk && !key.ctrl) {
-      chunk = normalizerRef.current.normalize(chunk);
-      // 貼り付けの場合（複数文字）はnormalizerの状態をリセット
+      // 貼り付けの場合（複数文字）はローカルnormalizerを使用
       if (chunk.length > 1) {
-        normalizerRef.current.reset();
+        const localNormalizer = createChunkNormalizer();
+        chunk = localNormalizer.normalize(chunk);
+      } else {
+        chunk = normalizerRef.current.normalize(chunk);
       }
     }
 
