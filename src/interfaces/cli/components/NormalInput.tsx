@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, Box } from 'ink';
+import { Text, Box, Newline } from 'ink';
 import type { Coder } from '../../../usecases/chat/types';
 import { splitGraphemes, graphemeCount, sliceByGrapheme } from './utilities/graphemes';
 
@@ -50,21 +50,35 @@ export const NormalInput = ({
         const graphemes = splitGraphemes(line);
         const isCursorOnThisLine = lineIndex === cursorLine;
         const atLineEnd = isCursorOnThisLine && cursorColumn === graphemes.length;
+        const isEmpty = graphemes.length === 0;
+        const space = ' ';
+        
         return (
           <Text key={lineIndex} color={agentConfig.color}>
             {lineIndex === 0 && `${agentConfig.name} > `}
-            {graphemes.map((g, charIndex) => {
-              const isAtCursor = isCursorOnThisLine && charIndex === cursorColumn;
-              return (
-                <Text
-                  key={`${lineIndex}-${charIndex}`}
-                  backgroundColor={isAtCursor ? 'white' : undefined}
-                  color={isAtCursor ? 'black' : undefined}
-                >
-                  {g}
-                </Text>
-              );
-            })}
+            {isEmpty ? (
+              // 空行の場合は半角スペースを挿入
+              space
+            ) : (
+              graphemes.map((g, charIndex) => {
+                const isAtCursor = isCursorOnThisLine && charIndex === cursorColumn;
+                
+                // \nまたは\r文字の場合はNewlineコンポーネントを返す
+                if (g === '\n' || g === '\r') {
+                  return <Newline key={`${lineIndex}-${charIndex}`} />;
+                }
+                
+                return (
+                  <Text
+                    key={`${lineIndex}-${charIndex}`}
+                    backgroundColor={isAtCursor ? 'white' : undefined}
+                    color={isAtCursor ? 'black' : undefined}
+                  >
+                    {g}
+                  </Text>
+                );
+              })
+            )}
             {atLineEnd && (
               <Text backgroundColor="white" color="black"> </Text>
             )}
