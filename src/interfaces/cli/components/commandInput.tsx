@@ -1,10 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useReducer } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { ChatUseCases, Coder } from '../../../usecases/chat/types';
 import { AutoCompleteInput } from './SelectItem';
 import { NormalInput } from './NormalInput';
 import { createChunkNormalizer } from './utilities/inputNormalization';
 import type { CommandEntry } from '../types';
+import { applyBackspace, applyInsert, applyNewline, moveLeft, moveRight } from './utilities/cursorEditing';
 
 export interface CommandInputProps {
   chatUseCases: ChatUseCases;
@@ -23,51 +24,81 @@ export const CommandInput = ({
   history,
   setHistory
 }: CommandInputProps) => {
-  const [input, setInput] = useState('');
+  // reducerで入力テキストとカーソル位置（書記素インデックス）を一元管理
+  type EditState = { text: string; pos: number };
+  type Action =
+    | { type: 'insert'; chunk: string }
+    | { type: 'backspace' }
+    | { type: 'newline' }
+    | { type: 'moveLeft' }
+    | { type: 'moveRight' }
+    | { type: 'reset' };
+
+  const reducer = (state: EditState, action: Action): EditState => {
+    switch (action.type) {
+      case 'insert': {
+        const { text, pos } = applyInsert(state.text, state.pos, action.chunk);
+        return { text, pos };
+      }
+      case 'backspace': {
+        const { text, pos } = applyBackspace(state.text, state.pos);
+        return { text, pos };
+      }
+      case 'newline': {
+        const { text, pos } = applyNewline(state.text, state.pos);
+        return { text, pos };
+      }
+      case 'moveLeft': {
+        const { pos } = moveLeft(state.text, state.pos);
+        return { ...state, pos };
+      }
+      case 'moveRight': {
+        const { pos } = moveRight(state.text, state.pos);
+        return { ...state, pos };
+      }
+      case 'reset':
+        return { text: '', pos: 0 };
+    }
+  };
+
+  const [state, dispatch] = useReducer(reducer, { text: '', pos: 0 });
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [cursorPosition, setCursorPosition] = useState(0);
-  const cursorPositionRef = useRef(0);
   const normalizerRef = useRef(createChunkNormalizer());
-
-  // cursorPositionの変更をrefに自動同期
-  useEffect(() => {
-    cursorPositionRef.current = cursorPosition;
-  }, [cursorPosition]);
 
   // Approval dialog state
   const [pendingApproval, setPendingApproval] = useState<null | { name: string; args: Record<string, any> }>(null);
   const approvalResolverRef = useRef<null | ((ok: boolean) => void)>(null);
 
   // autocomplete helpers
-  const isAutoCompleting = input.startsWith('@') || input.startsWith('/');
+  const isAutoCompleting = state.text.startsWith('@') || state.text.startsWith('/');
   const filteredItems = isAutoCompleting
     ? coders.filter(item => {
-        const filterText = input.slice(1);
+        const filterText = state.text.slice(1);
         if (!filterText) return true;
         return item.name.toLowerCase().startsWith(filterText.toLowerCase());
       })
     : [];
 
-  const handleAutoCompleteStart = (triggerChar: string) => setInput(triggerChar);
+  const handleAutoCompleteStart = (triggerChar: string) => {
+    dispatch({ type: 'reset' });
+    dispatch({ type: 'insert', chunk: triggerChar });
+  };
   const handleAutoCompleteCancel = () => {
-    setInput('');
-    setCursorPosition(0);
+    dispatch({ type: 'reset' });
     setSelectedIndex(0);
   };
   const handleCoderSelect = (coder: Coder) => {
     chatUseCases.clearHistory();
     onSelectCoder(coder);
-    setInput('');
-    setCursorPosition(0);
+    dispatch({ type: 'reset' });
     setSelectedIndex(0);
   };
 
   const handleNormalSubmit = (text: string) => {
     if (text.trim() && !isProcessing) {
       callChat(text);
-      setInput('');
-      setCursorPosition(0);
+      dispatch({ type: 'reset' });
     }
   };
 
@@ -95,6 +126,11 @@ export const CommandInput = ({
       return;
     }
 
+    // Processing中は編集系操作を受け付けない（Ctrl+Cは先で処理済み）
+    if (isProcessing) {
+      return;
+    }
+
     let chunk = inputChar;
     if (chunk && !key.ctrl) {
       chunk = normalizerRef.current.normalize(chunk);
@@ -110,15 +146,17 @@ export const CommandInput = ({
       } else if (key.escape) {
         handleAutoCompleteCancel();
       } else if (key.backspace || key.delete) {
-        if (input.length > 1) {
-          setInput(prev => prev.slice(0, -1));
+        if (state.text.length > 1) {
+          const next = state.text.slice(0, -1);
+          dispatch({ type: 'reset' });
+          if (next) dispatch({ type: 'insert', chunk: next });
           setSelectedIndex(0);
         } else {
           handleAutoCompleteCancel();
         }
       } else if (inputChar && !key.ctrl) {
         if (chunk) {
-          setInput(prev => prev + chunk);
+          dispatch({ type: 'insert', chunk });
           setSelectedIndex(0);
         }
       }
@@ -127,37 +165,20 @@ export const CommandInput = ({
 
     // normal input mode
     if (key.leftArrow) {
-      setCursorPosition(prev => Math.max(0, prev - 1));
+      dispatch({ type: 'moveLeft' });
     } else if (key.rightArrow) {
-      setCursorPosition(prev => Math.min(input.length, prev + 1));
+      dispatch({ type: 'moveRight' });
     } else if (key.ctrl && inputChar === 'j') {
-      const before = input.slice(0, cursorPosition);
-      const after = input.slice(cursorPosition);
-      setInput(before + '\n' + after);
-      setCursorPosition(prev => prev + 1);
+      dispatch({ type: 'newline' });
     } else if (key.return) {
-      if (input.trim() && !isProcessing) handleNormalSubmit(input);
+      if (state.text.trim() && !isProcessing) handleNormalSubmit(state.text);
     } else if (key.backspace || key.delete) {
-      if (cursorPosition > 0) {
-        const before = input.slice(0, cursorPosition - 1);
-        const after = input.slice(cursorPosition);
-        setInput(before + after);
-        setCursorPosition(prev => prev - 1);
-      }
-    } else if ((inputChar === '@' || inputChar === '/') && input === '') {
+      dispatch({ type: 'backspace' });
+    } else if ((inputChar === '@' || inputChar === '/') && state.text === '') {
       handleAutoCompleteStart(inputChar);
     } else if (inputChar && !key.ctrl && !isProcessing) {
       if (chunk) {
-        setInput(prevInput => {
-          const currentPos = cursorPositionRef.current;
-          const before = prevInput.slice(0, currentPos);
-          const after = prevInput.slice(currentPos);
-          
-          // refを即座に更新
-          cursorPositionRef.current = currentPos + Array.from(chunk).length;
-          return before + chunk + after;
-        });
-        setCursorPosition(prev => prev + Array.from(chunk).length);
+        dispatch({ type: 'insert', chunk });
       }
     }
   });
@@ -246,17 +267,17 @@ export const CommandInput = ({
       ) : isAutoCompleting ? (
         <AutoCompleteInput
           items={filteredItems}
-          triggerChar={input[0]}
-          initialInput={input}
+          triggerChar={state.text[0]}
+          initialInput={state.text}
           agentConfig={selectedCoder}
           selectedIndex={selectedIndex}
         />
       ) : (
         <NormalInput
-          input={input}
+          input={state.text}
           agentConfig={selectedCoder}
           isProcessing={isProcessing}
-          cursorPosition={cursorPosition}
+          cursorPosition={state.pos}
         />
       )}
     </Box>

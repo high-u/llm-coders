@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, Box } from 'ink';
 import type { Coder } from '../../../usecases/chat/types';
+import { splitGraphemes, graphemeCount, sliceByGrapheme } from './utilities/graphemes';
 
 export interface NormalInputProps {
   input: string;
@@ -28,42 +29,48 @@ export const NormalInput = ({
 
   // 入力文字列を行に分割
   const lines = input.split('\n');
-  
-  // カーソル位置を行・列に変換
-  const getCursorLineAndColumn = (input: string, cursorPos: number) => {
-    const beforeCursor = input.slice(0, cursorPos);
-    const lines = beforeCursor.split('\n');
+
+  // カーソル位置（書記素インデックス）を行・列に変換
+  const getCursorLineAndColumn = (text: string, graphemePos: number) => {
+    const before = sliceByGrapheme(text, 0, graphemePos);
+    const linesBefore = before.split('\n');
+    const lineIndex = linesBefore.length - 1;
+    const columnGraphemes = linesBefore[linesBefore.length - 1] ?? '';
     return {
-      line: lines.length - 1,
-      column: lines[lines.length - 1].length
+      line: lineIndex,
+      column: graphemeCount(columnGraphemes)
     };
   };
-  
+
   const { line: cursorLine, column: cursorColumn } = getCursorLineAndColumn(input, cursorPosition);
   
   return (
     <Box flexDirection="column">
-      {lines.map((line, lineIndex) => (
-        <Text key={lineIndex} color={agentConfig.color}>
-          {lineIndex === 0 && `${agentConfig.name} > `}
-          {Array.from(line).map((char, charIndex) => {
-            const isAtCursor = lineIndex === cursorLine && charIndex === cursorColumn;
-            return (
-              <Text 
-                key={`${lineIndex}-${charIndex}`}
-                backgroundColor={isAtCursor ? 'white' : undefined}
-                color={isAtCursor ? 'black' : undefined}
-              >
-                {char}
-              </Text>
-            );
-          })}
-          {/* 行末カーソル処理 */}
-          {lineIndex === cursorLine && cursorColumn === line.length && (
-            <Text backgroundColor="white" color="black"> </Text>
-          )}
-        </Text>
-      ))}
+      {lines.map((line, lineIndex) => {
+        const graphemes = splitGraphemes(line);
+        const isCursorOnThisLine = lineIndex === cursorLine;
+        const atLineEnd = isCursorOnThisLine && cursorColumn === graphemes.length;
+        return (
+          <Text key={lineIndex} color={agentConfig.color}>
+            {lineIndex === 0 && `${agentConfig.name} > `}
+            {graphemes.map((g, charIndex) => {
+              const isAtCursor = isCursorOnThisLine && charIndex === cursorColumn;
+              return (
+                <Text
+                  key={`${lineIndex}-${charIndex}`}
+                  backgroundColor={isAtCursor ? 'white' : undefined}
+                  color={isAtCursor ? 'black' : undefined}
+                >
+                  {g}
+                </Text>
+              );
+            })}
+            {atLineEnd && (
+              <Text backgroundColor="white" color="black"> </Text>
+            )}
+          </Text>
+        );
+      })}
     </Box>
   );
 };
