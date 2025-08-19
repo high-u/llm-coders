@@ -61,6 +61,7 @@ export interface ToolExecutor {
   ) => Promise<ToolResult>;
 }
 
+export type ToolApprovalDecision = 'yes' | 'no' | 'escape';
 export interface ConfirmToolExecutionFn {
-  (input: { name: string; args: Record<string, any>; tool_call?: ToolCall }): Promise<boolean>;
+  (input: { name: string; args: Record<string, any>; tool_call?: ToolCall }): Promise<ToolApprovalDecision>;
 }
