@@ -7,7 +7,8 @@ export interface ChatUseCases {
     coder: Coder,
     userPrompt: string,
     onEvent: (event: StreamEvent) => void,
-    confirmToolExecution?: (input: { name: string; args: Record<string, any> }) => Promise<boolean>
+    confirmToolExecution?: (input: { name: string; args: Record<string, any> }) => Promise<'yes' | 'no' | 'escape'>,
+    shouldContinue?: () => boolean
   ) => Promise<void>;
   clearHistory: () => void;
   getHistory: () => ChatMessage[];

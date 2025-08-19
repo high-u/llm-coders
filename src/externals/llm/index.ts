@@ -1,4 +1,4 @@
-import type { ChatMessage, StreamEvent, OpenAITool, ToolCall, ToolExecutor, ConfirmToolExecutionFn } from './types';
+import type { ChatMessage, StreamEvent, OpenAITool, ToolCall, ToolExecutor, ConfirmToolExecutionFn, ToolApprovalDecision } from './types';
 import { formatEndpoint } from './functions/formatRequest';
 import { processStreamChunk } from './functions/parseStream';
 // No cross-layer helpers; construct objects inline per layer-local types
@@ -14,6 +14,7 @@ export interface LLMExternal {
 			toolChoice?: any;
 			tools?: OpenAITool[];
 			confirmToolExecution?: ConfirmToolExecutionFn;
+			shouldContinue?: () => boolean;
 		}
 	) => Promise<ChatMessage[]>; // 更新された履歴を返す
 }
@@ -29,6 +30,7 @@ export const createLLMExternal = (): LLMExternal => ({
 			toolChoice?: any;
 			tools?: OpenAITool[];
 			confirmToolExecution?: ConfirmToolExecutionFn;
+			shouldContinue?: () => boolean;
 		}
 	): Promise<ChatMessage[]> => {
 		try {
@@ -84,6 +86,8 @@ export const createLLMExternal = (): LLMExternal => ({
 
 				// ストリーム処理
 				while (true) {
+					// 継続判定（チャンク境界チェック用に各反復の冒頭でも確認）
+					if (options?.shouldContinue && !options.shouldContinue()) break;
 					const { done, value } = await reader.read();
 					if (done) break;
 
@@ -171,15 +175,19 @@ export const createLLMExternal = (): LLMExternal => ({
 							tool_call: toolCall,
 							approval: { name: toolCall.function.name, args: toolArgs }
 						});
-						const approved = await (options?.confirmToolExecution
+						const decision: ToolApprovalDecision = await (options?.confirmToolExecution
 							? options.confirmToolExecution({ name: toolCall.function.name, args: toolArgs, tool_call: toolCall })
-							: Promise.resolve(false));
+							: Promise.resolve('no'));
+						if (decision === 'escape') {
+							// 承諾関連イベントは出さずに静かに終了
+							return currentMessages;
+						}
 						onEvent({
 							type: 'tool_approval_result',
 							tool_call: toolCall,
-							approval: { name: toolCall.function.name, args: toolArgs, approved }
+							approval: { name: toolCall.function.name, args: toolArgs, approved: decision === 'yes' }
 						});
-						if (!approved) {
+						if (decision !== 'yes') {
 							// 否認時はツール実行をスキップし、エラー扱いで通知
 							onEvent({
 								type: 'tool_call_error',

@@ -32,7 +32,8 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 			coder: Coder,
 			userPrompt: string,
 			onEvent: (event: StreamEvent) => void,
-			confirmToolExecution?: (input: { name: string; args: Record<string, any> }) => Promise<boolean>
+			confirmToolExecution?: (input: { name: string; args: Record<string, any> }) => Promise<'yes' | 'no' | 'escape'>,
+			shouldContinue?: () => boolean
 		): Promise<void> => {
 			// 1. システムプロンプトを履歴の最初に追加（初回のみ）
 			const currentHistory = conversationHistoryRepository.getHistory();
@@ -108,7 +109,8 @@ export const createChatUseCases = (deps: ChatFactoryDependencies = {}): ChatUseC
 					return {
 						toolExecutor, // ツール実行は抽象I/Fで注入
 						tools,
-						confirmToolExecution: confirmToolExecution
+						confirmToolExecution: confirmToolExecution,
+						shouldContinue
 					};
 				})()
 			);

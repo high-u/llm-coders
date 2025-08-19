@@ -85,7 +85,12 @@ export const CommandInput = ({
 
   // Approval dialog state
   const [pendingApproval, setPendingApproval] = useState<null | { name: string; args: Record<string, any> }>(null);
-  const approvalResolverRef = useRef<null | ((ok: boolean) => void)>(null);
+  const approvalResolverRef = useRef<null | ((decision: 'yes' | 'no' | 'escape') => void)>(null);
+
+  // cancel / exit controls
+  const cancelRequestedRef = useRef(false);
+  const lastCtrlCTsRef = useRef<number | null>(null);
+  const currentCommandIndexRef = useRef<number | null>(null);
 
   // autocomplete helpers
   const isAutoCompleting = state.text.startsWith('@') || state.text.startsWith('/');
@@ -120,9 +125,51 @@ export const CommandInput = ({
   };
 
   useInput((inputChar, key) => {
-    // Ctrl+C should always terminate, even during approval
+    // Global cancel & exit handling
     if (key.ctrl && inputChar === 'c') {
-      process.exit(0);
+      const now = Date.now();
+      if (lastCtrlCTsRef.current && now - lastCtrlCTsRef.current <= 2000) {
+        // second Ctrl+C within 2s -> exit
+        process.exit(0);
+        return;
+      }
+      // first Ctrl+C -> cancel to prompt
+      lastCtrlCTsRef.current = now;
+      cancelRequestedRef.current = true;
+      // close approval if any (escape semantics)
+      if (pendingApproval) {
+        approvalResolverRef.current?.('escape');
+        approvalResolverRef.current = null;
+        setPendingApproval(null);
+      }
+      // stop processing UI
+      if (isProcessing) {
+        setIsProcessing(false);
+        if (currentCommandIndexRef.current != null) {
+          const idx = currentCommandIndexRef.current;
+          setHistory(prev => prev.map((e, i) => i === idx ? { ...e, isStreaming: false } : e));
+        }
+      }
+      // return focus to normal input
+      dispatch({ type: 'reset' });
+      return;
+    }
+    if (key.escape) {
+      // Escape behaves like first Ctrl+C (cancel to prompt)
+      cancelRequestedRef.current = true;
+      if (pendingApproval) {
+        approvalResolverRef.current?.('escape');
+        approvalResolverRef.current = null;
+        setPendingApproval(null);
+      }
+      if (isProcessing) {
+        setIsProcessing(false);
+        if (currentCommandIndexRef.current != null) {
+          const idx = currentCommandIndexRef.current;
+          setHistory(prev => prev.map((e, i) => i === idx ? { ...e, isStreaming: false } : e));
+        }
+      }
+      dispatch({ type: 'reset' });
       return;
     }
 
@@ -133,8 +180,8 @@ export const CommandInput = ({
         return;
       }
       if (key.return) {
-        const approve = approvalSelectedIndex === 0;
-        approvalResolverRef.current?.(approve);
+        const decision: 'yes' | 'no' = approvalSelectedIndex === 0 ? 'yes' : 'no';
+        approvalResolverRef.current?.(decision);
         approvalResolverRef.current = null;
         setPendingApproval(null);
         return;
@@ -220,8 +267,10 @@ export const CommandInput = ({
   });
 
   const callChat = async (prompt: string) => {
+    cancelRequestedRef.current = false;
     setIsProcessing(true);
     const commandIndex = history.length;
+    currentCommandIndexRef.current = commandIndex;
     setHistory(prev => [...prev, { command: prompt, output: '', isStreaming: true, agentName: selectedCoder.name }]);
 
     let accumulatedOutput = '';
@@ -285,11 +334,12 @@ export const CommandInput = ({
             break;
         }
       },
-      ({ name, args }) => new Promise<boolean>((resolve) => {
+      ({ name, args }) => new Promise<'yes' | 'no' | 'escape'>((resolve) => {
         approvalResolverRef.current = resolve;
         setPendingApproval({ name, args });
         setApprovalSelectedIndex(0);
-      })
+      }),
+      () => !cancelRequestedRef.current
     );
   };
 
