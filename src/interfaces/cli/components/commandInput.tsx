@@ -79,6 +79,8 @@ export const CommandInput = ({
   const [state, dispatch] = useReducer(reducer, { text: '', pos: 0 });
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  // approval dialog list selection (0: Yes, 1: No)
+  const [approvalSelectedIndex, setApprovalSelectedIndex] = useState(0);
   const normalizerRef = useRef(createChunkNormalizer());
 
   // Approval dialog state
@@ -124,18 +126,25 @@ export const CommandInput = ({
       return;
     }
 
-    // approval dialog: only y/n/esc accepted
+    // approval dialog: list selection (Yes/No) with arrow/enter and shortcuts (y/n select only)
     if (pendingApproval) {
-      if (inputChar?.toLowerCase?.() === 'y') {
-        approvalResolverRef.current?.(true);
+      if (key.upArrow || key.downArrow) {
+        setApprovalSelectedIndex(prev => (prev === 0 ? 1 : 0));
+        return;
+      }
+      if (key.return) {
+        const approve = approvalSelectedIndex === 0;
+        approvalResolverRef.current?.(approve);
         approvalResolverRef.current = null;
         setPendingApproval(null);
         return;
       }
-      if (inputChar?.toLowerCase?.() === 'n' || key.escape) {
-        approvalResolverRef.current?.(false);
-        approvalResolverRef.current = null;
-        setPendingApproval(null);
+      if (inputChar?.toLowerCase?.() === 'y') {
+        setApprovalSelectedIndex(0); // select Yes
+        return;
+      }
+      if (inputChar?.toLowerCase?.() === 'n') {
+        setApprovalSelectedIndex(1); // select No
         return;
       }
       return;
@@ -252,10 +261,11 @@ export const CommandInput = ({
             const name = event.approval?.name || event.tool_call?.function?.name || 'unknown';
             const args = event.approval?.args ?? {};
             const argsText = JSON.stringify(args).slice(0, 300);
-            const line = `\n[Tool] Confirm execution? ${name} ${argsText}\nPress y to allow, n to deny.`;
+            const line = `\n[Tool] Confirm execution? ${name} ${argsText}\nUse ↑↓ to navigate, Enter to confirm. Shortcuts: y (select Yes), n (select No).`;
             accumulatedOutput += `\n${line}\n`;
             setHistory(prev => prev.map((entry, index) => index === commandIndex ? { ...entry, output: accumulatedOutput } : entry));
             setPendingApproval({ name, args });
+            setApprovalSelectedIndex(0);
             break;
           }
           case 'tool_approval_result': {
@@ -278,6 +288,7 @@ export const CommandInput = ({
       ({ name, args }) => new Promise<boolean>((resolve) => {
         approvalResolverRef.current = resolve;
         setPendingApproval({ name, args });
+        setApprovalSelectedIndex(0);
       })
     );
   };
@@ -285,11 +296,24 @@ export const CommandInput = ({
   return (
     <Box flexDirection="column">
       {pendingApproval ? (
-        <Box flexDirection="column" borderStyle="single" borderColor="yellow" paddingX={1}>
+        <Box flexDirection="column" borderStyle="single" borderColor="white" paddingX={1}>
           <Text color="yellow">Approve tool execution?</Text>
           <Text color="white">{`name=${pendingApproval.name}`}</Text>
           <Text color="gray">{`args=${JSON.stringify(pendingApproval.args).slice(0, 300)}`}</Text>
-          <Text color="gray">Press y to allow, n to deny</Text>
+          <Box marginTop={1} flexDirection="column">
+            {['Yes (y)', 'No (n)'].map((label, idx) => (
+              <Text
+                key={label}
+                color={idx === approvalSelectedIndex ? 'yellow' : 'white'}
+                backgroundColor={idx === approvalSelectedIndex ? 'blue' : undefined}
+              >
+                {`${idx === approvalSelectedIndex ? '> ' : '  '}${label}`}
+              </Text>
+            ))}
+            <Box marginTop={1}>
+              <Text color="gray">Use ↑↓ to navigate, Enter to select. Shortcuts: y, n</Text>
+            </Box>
+          </Box>
         </Box>
       ) : isAutoCompleting ? (
         <AutoCompleteInput
