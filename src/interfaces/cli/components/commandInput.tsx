@@ -6,6 +6,7 @@ import { NormalInput } from './NormalInput';
 import { createChunkNormalizer } from './utilities/inputNormalization';
 import type { CommandEntry } from '../types';
 import { applyBackspace, applyDelete, applyInsert, applyNewline, moveLeft, moveRight, moveUp, moveDown } from './utilities/cursorEditing';
+import { diffLinesPatience } from './utilities/lineDiff';
 
 export interface CommandInputProps {
   chatUseCases: ChatUseCases;
@@ -84,7 +85,7 @@ export const CommandInput = ({
   const normalizerRef = useRef(createChunkNormalizer());
 
   // Approval dialog state
-  const [pendingApproval, setPendingApproval] = useState<null | { name: string; args: Record<string, any> }>(null);
+  const [pendingApproval, setPendingApproval] = useState<null | { name: string; args: Record<string, any>; diffPreview?: string }>(null);
   const approvalResolverRef = useRef<null | ((decision: 'yes' | 'no' | 'escape') => void)>(null);
 
   // cancel / exit controls
@@ -313,8 +314,6 @@ export const CommandInput = ({
             const line = `\n[Tool] Confirm execution? ${name} ${argsText}\nUse ↑↓ to navigate, Enter to confirm. Shortcuts: y (select Yes), n (select No).`;
             accumulatedOutput += `\n${line}\n`;
             setHistory(prev => prev.map((entry, index) => index === commandIndex ? { ...entry, output: accumulatedOutput } : entry));
-            setPendingApproval({ name, args });
-            setApprovalSelectedIndex(0);
             break;
           }
           case 'tool_approval_result': {
@@ -336,7 +335,22 @@ export const CommandInput = ({
       },
       ({ name, args }) => new Promise<'yes' | 'no' | 'escape'>((resolve) => {
         approvalResolverRef.current = resolve;
-        setPendingApproval({ name, args });
+        // confirm 側でのみ承諾ダイアログを起動し、ここで diff を作成（行単位・Patience）
+        let diffPreview: string | undefined = undefined;
+        if (name === 'edit_text_file') {
+          const path = String(args?.path ?? '');
+          const edits = Array.isArray(args?.edits) ? args.edits : [];
+          const chunks: string[] = [];
+          for (let i = 0; i < edits.length; i++) {
+            const e = edits[i] || {};
+            const oldText = String(e?.oldText ?? '');
+            const newText = String(e?.newText ?? '');
+            const diff = diffLinesPatience(oldText, newText);
+            chunks.push(diff);
+          }
+          diffPreview = chunks.join('\n\n');
+        }
+        setPendingApproval({ name, args, diffPreview });
         setApprovalSelectedIndex(0);
       }),
       () => !cancelRequestedRef.current
@@ -350,6 +364,21 @@ export const CommandInput = ({
           <Text color="yellow">Approve tool execution?</Text>
           <Text color="white">{`name=${pendingApproval.name}`}</Text>
           <Text color="gray">{`args=${JSON.stringify(pendingApproval.args).slice(0, 300)}`}</Text>
+          {pendingApproval.diffPreview ? (
+            <Box marginTop={1} flexDirection="column">
+              <Text color="gray">Diff preview:</Text>
+              <Box flexDirection="column">
+                {pendingApproval.diffPreview.split(/\r?\n/).map((line, idx) => {
+                  const color = line.startsWith('+') ? 'green' : line.startsWith('-') ? 'red' : 'white';
+                  return (
+                    <Text key={idx} color={color}>
+                      {line}
+                    </Text>
+                  );
+                })}
+              </Box>
+            </Box>
+          ) : null}
           <Box marginTop={1} flexDirection="column">
             {['Yes (y)', 'No (n)'].map((label, idx) => (
               <Text
