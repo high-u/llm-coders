@@ -2,19 +2,23 @@ import React from 'react';
 import { Text, Box, Newline } from 'ink';
 import type { Coder } from '../../../usecases/chat/types';
 import { splitGraphemes, graphemeCount, sliceByGrapheme } from './utilities/graphemes';
+import { PromptHeader } from './promptHeader';
+import type { UiColorConfig } from '../types';
 
 export interface NormalInputProps {
   input: string;
   agentConfig: Coder;
   isProcessing: boolean;
   cursorPosition: number;
+  uiColors: UiColorConfig;
 }
 
 export const NormalInput = ({
   input,
   agentConfig,
   isProcessing,
-  cursorPosition
+  cursorPosition,
+  uiColors
 }: NormalInputProps) => {
 
   // 入力表示
@@ -54,8 +58,10 @@ export const NormalInput = ({
         const bom = '\uFEFF';
         
         return (
-          <Text key={lineIndex} color={agentConfig.color}>
-            {lineIndex === 0 && `${agentConfig.name} > `}
+          <Text key={lineIndex} color={uiColors.base.foreground}>
+            {lineIndex === 0 && (
+              <PromptHeader name={agentConfig.name} color={agentConfig.color} separatorColor={uiColors.base.separator} />
+            )}
             {isEmpty ? (
               // 空行の場合は半角スペースを挿入
               bom
@@ -71,8 +77,8 @@ export const NormalInput = ({
                 return (
                   <Text
                     key={`${lineIndex}-${charIndex}`}
-                    backgroundColor={isAtCursor ? 'white' : undefined}
-                    color={isAtCursor ? 'black' : undefined}
+                    backgroundColor={isAtCursor ? uiColors.selected.background : undefined}
+                    color={isAtCursor ? uiColors.selected.foreground : undefined}
                   >
                     {g}
                   </Text>
@@ -80,7 +86,7 @@ export const NormalInput = ({
               })
             )}
             {atLineEnd && (
-              <Text backgroundColor="white" color="black"> </Text>
+              <Text backgroundColor={uiColors.selected.background} color={uiColors.selected.foreground}> </Text>
             )}
           </Text>
         );
