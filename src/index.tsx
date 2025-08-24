@@ -8,6 +8,7 @@ import type { McpServerDefinition } from './externals/configuration/types';
 import type { McpServerConfig } from './externals/mcp';
 import { createMCPExternal } from './externals/mcp';
 import { createToolsExternal } from './externals/tools/llm';
+import type { UiColorConfig } from './interfaces/cli/types';
 
 // エントリポイントで依存関係を組み立て（rules.md 準拠）
 const bootstrap = async () => {
@@ -49,6 +50,33 @@ const bootstrap = async () => {
     tools: createToolsExternal({ llm: llmExternal, mcp: mcpExternal, configuration: configurationExternal })
   });
 
+  // UI colors: resolve from configuration (default all white)
+  const rawUi = configurationExternal.getUiConfig?.() ?? {};
+  const resolvedUiColors: UiColorConfig = {
+    base: {
+      foreground: String(rawUi?.color?.base?.foreground ?? 'white'),
+      hint: String(rawUi?.color?.base?.hint ?? 'white'),
+      border: String(rawUi?.color?.base?.border ?? 'white'),
+      banner: String(rawUi?.color?.base?.banner ?? 'white'),
+      separator: String(rawUi?.color?.base?.separator ?? 'white')
+    },
+    selected: {
+      foreground: String(rawUi?.color?.selected?.foreground ?? 'white'),
+      background: String(rawUi?.color?.selected?.background ?? 'white')
+    },
+    approval: {
+      border: String(rawUi?.color?.approval?.border ?? 'white'),
+      title: String(rawUi?.color?.approval?.title ?? 'white'),
+      text: String(rawUi?.color?.approval?.text ?? 'white'),
+      hint: String(rawUi?.color?.approval?.hint ?? 'white')
+    },
+    diff: {
+      add: String(rawUi?.color?.diff?.add ?? 'white'),
+      delete: String(rawUi?.color?.diff?.delete ?? 'white'),
+      context: String(rawUi?.color?.diff?.context ?? 'white')
+    }
+  };
+
   // 終了時のクリーンアップ
   const shutdown = async () => {
     try { await mcpExternal.stopAll(); } catch {}
@@ -57,7 +85,7 @@ const bootstrap = async () => {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  render(<CommandInterface chatUseCases={chatUseCases} />, { exitOnCtrlC: false });
+  render(<CommandInterface chatUseCases={chatUseCases} uiColors={resolvedUiColors} />, { exitOnCtrlC: false });
 };
 
 bootstrap();

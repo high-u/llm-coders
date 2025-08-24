@@ -4,7 +4,7 @@ import type { ChatUseCases, Coder } from '../../../usecases/chat/types';
 import { AutoCompleteInput } from './SelectItem';
 import { NormalInput } from './NormalInput';
 import { createChunkNormalizer } from './utilities/inputNormalization';
-import type { CommandEntry } from '../types';
+import type { CommandEntry, UiColorConfig } from '../types';
 import { applyBackspace, applyDelete, applyInsert, applyNewline, moveLeft, moveRight, moveUp, moveDown } from './utilities/cursorEditing';
 import { diffLinesPatience } from './utilities/lineDiff';
 
@@ -15,6 +15,7 @@ export interface CommandInputProps {
   onSelectCoder: (coder: Coder) => void;
   history: CommandEntry[];
   setHistory: React.Dispatch<React.SetStateAction<CommandEntry[]>>;
+  uiColors: UiColorConfig;
 }
 
 export const CommandInput = ({
@@ -23,7 +24,8 @@ export const CommandInput = ({
   selectedCoder,
   onSelectCoder,
   history,
-  setHistory
+  setHistory,
+  uiColors
 }: CommandInputProps) => {
   // reducerで入力テキストとカーソル位置（書記素インデックス）を一元管理
   type EditState = { text: string; pos: number };
@@ -360,16 +362,16 @@ export const CommandInput = ({
   return (
     <Box flexDirection="column">
       {pendingApproval ? (
-        <Box flexDirection="column" borderStyle="single" borderColor="white" paddingX={1}>
-          <Text color="yellow">Approve tool execution?</Text>
-          <Text color="white">{`name=${pendingApproval.name}`}</Text>
-          <Text color="gray">{`args=${JSON.stringify(pendingApproval.args).slice(0, 300)}`}</Text>
+        <Box flexDirection="column" borderStyle="single" borderColor={uiColors.approval.border} paddingX={1}>
+          <Text color={uiColors.approval.title}>Approve tool execution?</Text>
+          <Text color={uiColors.approval.text}>{`name=${pendingApproval.name}`}</Text>
+          <Text color={uiColors.approval.hint}>{`args=${JSON.stringify(pendingApproval.args).slice(0, 300)}`}</Text>
           {pendingApproval.diffPreview ? (
             <Box marginTop={1} flexDirection="column">
-              <Text color="gray">Diff preview:</Text>
+              <Text color={uiColors.approval.hint}>Diff preview:</Text>
               <Box flexDirection="column">
                 {pendingApproval.diffPreview.split(/\r?\n/).map((line, idx) => {
-                  const color = line.startsWith('+') ? 'green' : line.startsWith('-') ? 'red' : 'white';
+                  const color = line.startsWith('+') ? uiColors.diff.add : line.startsWith('-') ? uiColors.diff.delete : uiColors.diff.context;
                   return (
                     <Text key={idx} color={color}>
                       {line}
@@ -383,14 +385,14 @@ export const CommandInput = ({
             {['Yes (y)', 'No (n)'].map((label, idx) => (
               <Text
                 key={label}
-                color={idx === approvalSelectedIndex ? 'yellow' : 'white'}
-                backgroundColor={idx === approvalSelectedIndex ? 'blue' : undefined}
+                color={idx === approvalSelectedIndex ? uiColors.selected.foreground : uiColors.approval.text}
+                backgroundColor={idx === approvalSelectedIndex ? uiColors.selected.background : undefined}
               >
                 {`${idx === approvalSelectedIndex ? '> ' : '  '}${label}`}
               </Text>
             ))}
             <Box marginTop={1}>
-              <Text color="gray">Use ↑↓ to navigate, Enter to select. Shortcuts: y, n</Text>
+              <Text color={uiColors.approval.hint}>Use ↑↓ to navigate, Enter to select. Shortcuts: y, n</Text>
             </Box>
           </Box>
         </Box>
@@ -401,6 +403,7 @@ export const CommandInput = ({
           initialInput={state.text}
           agentConfig={selectedCoder}
           selectedIndex={selectedIndex}
+          uiColors={uiColors}
         />
       ) : (
         <NormalInput
@@ -408,6 +411,7 @@ export const CommandInput = ({
           agentConfig={selectedCoder}
           isProcessing={isProcessing}
           cursorPosition={state.pos}
+          uiColors={uiColors}
         />
       )}
     </Box>

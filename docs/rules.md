@@ -454,6 +454,14 @@ import { UserExternal } from '../../repositories/database/userExternal'; // NG
 - 変更影響が予測可能：どこを変更すると何に影響するかが明確
 - リファクタリングが安全：依存関係が複雑に絡まない
 
+UI設定（見た目）の注入ルール
+
+- interfaces 層から externals を直接呼ばない（設定の直接参照禁止）。
+- UI の見た目専用設定（例: 色などドメイン非関係の値）は、エントリーポイントで `externals/configuration` から読み取り、interfaces 層へ props（必要に応じて Context）で注入する。
+- 依存経路は一方向とする：externals → entrypoint → interfaces。usecases 層は関与しない（UI 設定はドメインロジックではないため）。
+- UI 用カラーが未設定の場合、エントリーポイントで全色を "white" に確定する（各コンポーネントでの個別フォールバックは禁止）。
+- UI コンポーネントは注入された設定のみを使用し、設定ファイルを直接読み出さない。UI におけるテーマ抽象の新設は行わない（props 直指定を原則）。
+
 ### ルール4: ドメインごとの依存関係管理
 
 - 各ドメインで必要な依存関係のみ定義

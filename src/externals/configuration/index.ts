@@ -10,6 +10,7 @@ export interface ConfigurationExternal {
   getMcpServers: () => McpServerDefinition[];
   getTools: () => ConfigTool[];
   getModelConfig: (key: string) => { endpoint: string; modelId: string } | null;
+  getUiConfig: () => any;
 }
 
 export const createConfigurationExternal = (): ConfigurationExternal => ({
@@ -38,5 +39,9 @@ export const createConfigurationExternal = (): ConfigurationExternal => ({
     const modelId = modelCfg?.modelId;
     if (typeof endpoint !== 'string' || typeof modelId !== 'string') return null;
     return { endpoint, modelId };
+  },
+  getUiConfig: () => {
+    const configData = config.util.toObject();
+    return configData?.ui ?? {};
   }
 });

@@ -42,5 +42,31 @@
       "command": "uvx",
       "args": ["mcp-server-fetch"]
     }
+  },
+  "ui": {
+    "color": {
+      "base": {
+        "foreground": "#ffffff",
+        "hint": "#808080",
+        "border": "#808080",
+        "banner": "#ffffff",
+        "separator": "#ffffff"
+      },
+      "selected": {
+        "foreground": "#000000",
+        "background": "#ffffff"
+      },
+      "approval": {
+        "border": "#ffffff",
+        "title": "#ffffff",
+        "text": "#ffffff",
+        "hint": "#808080"
+      },
+      "diff": {
+        "add": "#00ff00",
+        "delete": "#ff0000",
+        "context": "#ffffff"
+      }
+    }
   }
 }
