@@ -122,6 +122,9 @@ export const createLLMExternal = (): LLMExternal => ({
 								if (incoming.function?.name) accById[key].function.name = incoming.function.name;
 								if (typeof incoming.function?.arguments === 'string') accById[key].function.arguments += incoming.function.arguments;
 							}
+
+							// 受信したtool_callsの増分（arguments）をそのままUIへ通知
+							onEvent({ type: 'chunk', data: incoming.function.arguments });
 						}
 					}
 				}
