@@ -123,8 +123,10 @@ export const createLLMExternal = (): LLMExternal => ({
 								if (typeof incoming.function?.arguments === 'string') accById[key].function.arguments += incoming.function.arguments;
 							}
 
-							// 受信したtool_callsの増分（arguments）をそのままUIへ通知
-							onEvent({ type: 'chunk', data: incoming.function.arguments });
+							// 受信したtool_callsの増分（arguments）をUIへ通知（文字列で空でない場合のみ）
+							if (typeof incoming.function?.arguments === 'string' && incoming.function.arguments.length > 0) {
+								onEvent({ type: 'chunk', data: incoming.function.arguments });
+							}
 						}
 					}
 				}
